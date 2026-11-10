@@ -20,24 +20,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        terminateOtherInstances()
+        guard resolveInstances() else { return }
         controller.start()
         if !Permissions.requiredGranted { SetupWindow.shared.show() }
     }
 
-    /// Nur eine Eppur-Instanz – auch zwischen Alltags- und Dev-Version. Zwei Apps
-    /// würden beide auf Fn reagieren, doppelt einfügen und sich den Dienst wegnehmen.
-    /// Die zuletzt gestartete Instanz gewinnt.
-    private func terminateOtherInstances() {
+    /// Nur eine Eppur-Instanz – zwei Apps würden beide auf Fn reagieren und doppelt einfügen.
+    /// Die installierte App hat Vorrang: Eine Dev-Version (z. B. von Xcode für Code-Snippets
+    /// gestartet) beendet sich selbst, wenn Eppur schon läuft. Gleiche Varianten: die neueste gewinnt.
+    /// - Returns: false, wenn diese Instanz sich beendet.
+    private func resolveInstances() -> Bool {
         let me = ProcessInfo.processInfo.processIdentifier
+        let myID = Bundle.main.bundleIdentifier ?? ""
+        let isDev = myID.hasSuffix(".dev")
         let others = NSWorkspace.shared.runningApplications.filter { app in
             guard app.processIdentifier != me, let id = app.bundleIdentifier else { return false }
             return id.hasPrefix("app.eppur.Eppur") || id == "local.moveai.MoveAI"
+        }
+        if isDev, others.contains(where: { $0.bundleIdentifier == "app.eppur.Eppur" }),
+           ProcessInfo.processInfo.environment["EPPUR_DEV_TAKEOVER"] != "1" {
+            Diagnostics.log("Dev-Instanz beendet sich: installierte Eppur läuft bereits")
+            NSApp.terminate(nil)
+            return false
         }
         for app in others {
             Diagnostics.log("Beende andere Instanz \(app.bundleIdentifier ?? "?") pid=\(app.processIdentifier)")
             app.terminate()
         }
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
