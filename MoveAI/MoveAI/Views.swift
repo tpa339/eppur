@@ -20,9 +20,8 @@ struct MenuView: View {
 
         Divider()
 
-        if controller.settings.engine == .local {
-            Toggle("Qwen-Korrektur", isOn: Bindable(controller.settings).correction)
-        }
+        Toggle(controller.settings.correctionProvider == .api ? "Korrektur (API)" : "Korrektur (Qwen lokal)",
+               isOn: Bindable(controller.settings).correction)
         Toggle("Automatisch einfügen", isOn: Bindable(controller.settings).autoPaste)
         Toggle("Töne bei Start/Ende", isOn: Bindable(controller.settings).sounds)
 
@@ -345,38 +344,45 @@ private struct TranscriptionSettings: View {
                     ForEach(EngineKind.allCases) { Text($0.title).tag($0) }
                 }
                 Picker("Sprache", selection: $settings.language) {
+                    Text("Automatisch (Deutsch/Englisch)").tag("auto")
                     Text("Deutsch").tag("de-DE")
                     Text("Englisch").tag("en-US")
                 }
-                if settings.engine == .local {
-                    Toggle("Nachkorrektur mit Qwen 3.5 2B", isOn: $settings.correction)
+                if settings.engine == .api {
+                    TextField("Basis-URL", text: $settings.apiBaseURL, prompt: Text("https://api.openai.com/v1"))
+                    TextField("Modell", text: $settings.apiModel, prompt: Text("whisper-1"))
+                    SecureField("API-Schlüssel", text: $settings.apiKey)
                 }
             } header: {
-                Text("Transkription")
+                Text("Spracherkennung")
             } footer: {
-                if settings.engine == .local {
-                    SettingsHint(text: "Läuft komplett lokal im Eppur-Dienst (http://127.0.0.1:\(MoveAIService.port)). Die Korrektur behebt nur Schreibfehler, Namen und Satzzeichen; zu starke Änderungen werden verworfen.")
-                }
+                SettingsHint(text: settings.engine == .local
+                    ? "Parakeet läuft lokal im Eppur-Dienst und erkennt Deutsch und Englisch selbst – auch wenn du mitten im Diktat wechselst."
+                    : "Ruft POST {Basis-URL}/audio/transcriptions auf (OpenAI oder kompatible Server). Der Schlüssel liegt im Schlüsselbund.")
             }
 
-            if settings.engine == .local {
-                Section("Dienst") {
-                    ServiceStatusRow()
+            Section {
+                Toggle("Nachkorrektur", isOn: $settings.correction)
+                if settings.correction {
+                    Picker("Modell", selection: $settings.correctionProvider) {
+                        ForEach(CorrectionProvider.allCases) { Text($0.title).tag($0) }
+                    }
+                    if settings.correctionProvider == .api {
+                        TextField("Basis-URL", text: $settings.correctionBaseURL, prompt: Text("https://openrouter.ai/api/v1"))
+                        TextField("Modell", text: $settings.correctionModel, prompt: Text("z. B. openai/gpt-4o-mini"))
+                        SecureField("API-Schlüssel", text: $settings.correctionAPIKey)
+                    }
                 }
+            } header: {
+                Text("Korrektur")
+            } footer: {
+                SettingsHint(text: settings.correctionProvider == .api && settings.correction
+                    ? "Chat-API im OpenAI-Format: OpenAI (https://api.openai.com/v1), OpenRouter (https://openrouter.ai/api/v1), Ollama (http://localhost:11434/v1) u. a. Der Text verlässt dann deinen Mac. Wörterbuch und Schutz vor Umformulierungen gelten weiter."
+                    : "Behebt Schreibfehler, Namen und Satzzeichen mit deinem Wörterbuch. Zu starke Änderungen werden verworfen.")
             }
 
-            if settings.engine == .api {
-                Section {
-                    TextField("Basis-URL", text: $settings.apiBaseURL, prompt: Text("http://localhost:8000/v1"))
-                    TextField("Modell", text: $settings.apiModel, prompt: Text("whisper-1"))
-                    SecureField("API-Schlüssel (optional)", text: $settings.apiKey)
-                } header: {
-                    Text("Eigene API")
-                } footer: {
-                    Text("Ruft POST {Basis-URL}/audio/transcriptions auf. Funktioniert mit OpenAI und lokalen Whisper-Servern (z. B. speaches, LocalAI). Der Schlüssel liegt im Schlüsselbund.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            Section("Dienst") {
+                ServiceStatusRow()
             }
 
         }

@@ -30,7 +30,7 @@ func bool(_ value: Any?, default fallback: Bool) -> Bool {
 }
 
 /// Transkribieren + optional korrigieren, mit Zeitmessung.
-func process(file: URL, language: String?, correct: Bool, extraVocabulary: [String], correctionTimeout: Duration) async throws -> [String: Any] {
+func process(file: URL, language: String?, correct: Bool, extraVocabulary: [String], correctionTimeout: Duration, remote: RemoteLLM? = nil) async throws -> [String: Any] {
     let t0 = Date()
     let raw = try await speech.transcribe(fileURL: file, language: language)
     let asrMs = Int(Date().timeIntervalSince(t0) * 1000)
@@ -44,10 +44,10 @@ func process(file: URL, language: String?, correct: Bool, extraVocabulary: [Stri
     ]
     if correct && !raw.isEmpty {
         let t1 = Date()
-        let outcome = await corrector.correct(raw, vocabulary: Media.vocabulary(extra: extraVocabulary), timeout: correctionTimeout)
+        let outcome = await corrector.correct(raw, vocabulary: Media.vocabulary(extra: extraVocabulary), timeout: correctionTimeout, remote: remote)
         result["text"] = outcome.text
         result["corrected"] = outcome.applied
-        result["correction_model"] = CorrectionService.modelID
+        result["correction_model"] = remote?.model ?? CorrectionService.modelID
         result["correction_ms"] = Int(Date().timeIntervalSince(t1) * 1000)
         if let reason = outcome.reason { result["correction_note"] = reason }
     }
@@ -79,13 +79,17 @@ func route(_ request: HTTPRequest) async -> HTTPResponse {
             let ext = (filePart.filename as NSString?)?.pathExtension.nilIfEmpty ?? "wav"
             let file = dir.appendingPathComponent("upload.\(ext)")
             try filePart.data.write(to: file)
+            let remoteFields = RemoteLLM.from(
+                baseURL: fields["correction_base_url"], model: fields["correction_model"], apiKey: fields["correction_api_key"])
             let extra = (fields["prompt"] ?? "").components(separatedBy: CharacterSet(charactersIn: ",\n")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             var result = try await process(
                 file: file,
                 language: fields["language"],
                 correct: bool(fields["correct"], default: true),
                 extraVocabulary: extra,
-                correctionTimeout: .seconds(Double(fields["correction_timeout"] ?? "") ?? 3)
+                // Externe APIs brauchen mehr Zeit als das lokale Modell.
+                correctionTimeout: .seconds(Double(fields["correction_timeout"] ?? "") ?? (remoteFields == nil ? 3 : 10)),
+                remote: remoteFields
             )
             result["source"] = filePart.filename ?? "upload"
             return .json(result)
@@ -98,11 +102,14 @@ func route(_ request: HTTPRequest) async -> HTTPResponse {
             let correct = bool(json["correct"], default: false)
             let timeout = Duration.seconds((json["correction_timeout"] as? Double) ?? 60)
             let extra = json["vocabulary"] as? [String] ?? []
+            let remote = RemoteLLM.from(
+                baseURL: json["correction_base_url"] as? String, model: json["correction_model"] as? String,
+                apiKey: json["correction_api_key"] as? String)
 
             if let path = json["path"] as? String {
                 let file = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
                 guard FileManager.default.fileExists(atPath: file.path) else { throw MediaError.fileMissing(path) }
-                var result = try await process(file: file, language: language, correct: correct, extraVocabulary: extra, correctionTimeout: timeout)
+                var result = try await process(file: file, language: language, correct: correct, extraVocabulary: extra, correctionTimeout: timeout, remote: remote)
                 result["source"] = file.path
                 return .json(result)
             }
@@ -111,7 +118,7 @@ func route(_ request: HTTPRequest) async -> HTTPResponse {
                 defer { try? FileManager.default.removeItem(at: dir) }
                 let t0 = Date()
                 let download = try await Media.downloadAudio(from: url, into: dir)
-                var result = try await process(file: download.file, language: language, correct: correct, extraVocabulary: extra, correctionTimeout: timeout)
+                var result = try await process(file: download.file, language: language, correct: correct, extraVocabulary: extra, correctionTimeout: timeout, remote: remote)
                 result["source"] = url
                 result["title"] = download.title ?? ""
                 result["download_ms"] = Int(Date().timeIntervalSince(t0) * 1000) - (result["asr_ms"] as? Int ?? 0) - (result["correction_ms"] as? Int ?? 0)
@@ -128,7 +135,10 @@ func route(_ request: HTTPRequest) async -> HTTPResponse {
             let outcome = await corrector.correct(
                 text,
                 vocabulary: Media.vocabulary(extra: json["vocabulary"] as? [String] ?? []),
-                timeout: .seconds((json["timeout"] as? Double) ?? 30)
+                timeout: .seconds((json["timeout"] as? Double) ?? 30),
+                remote: RemoteLLM.from(
+                    baseURL: json["correction_base_url"] as? String, model: json["correction_model"] as? String,
+                    apiKey: json["correction_api_key"] as? String)
             )
             var result: [String: Any] = [
                 "text": outcome.text, "raw_text": text, "corrected": outcome.applied,

@@ -129,7 +129,7 @@ actor CorrectionService {
         }
     }
 
-    func correct(_ raw: String, vocabulary: [String], timeout: Duration) async -> CorrectionOutcome {
+    func correct(_ raw: String, vocabulary: [String], timeout: Duration, remote: RemoteLLM? = nil) async -> CorrectionOutcome {
         let original = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !original.isEmpty else { return CorrectionOutcome(text: raw, applied: false, reason: "leer") }
 
@@ -144,7 +144,7 @@ actor CorrectionService {
         let perChunk = chunks.count > 1 ? max(timeout, .seconds(20)) : timeout
 
         for chunk in chunks {
-            let result = await correctChunk(chunk, vocabulary: vocabulary, timeout: perChunk)
+            let result = await correctChunk(chunk, vocabulary: vocabulary, timeout: perChunk, remote: remote)
             output.append(result.text)
             anyApplied = anyApplied || result.applied
             if result.reason != nil { lastReason = result.reason }
@@ -152,13 +152,7 @@ actor CorrectionService {
         return CorrectionOutcome(text: output.joined(separator: " "), applied: anyApplied, reason: lastReason)
     }
 
-    private func correctChunk(_ raw: String, vocabulary: [String], timeout: Duration) async -> CorrectionOutcome {
-        // Nicht auf einen laufenden Download warten: Diktate sollen nie blockieren.
-        guard let container else {
-            if loading == nil { Task { try? await self.load() } }
-            return CorrectionOutcome(text: raw, applied: false, reason: "Korrekturmodell lädt noch")
-        }
-
+    private func correctChunk(_ raw: String, vocabulary: [String], timeout: Duration, remote: RemoteLLM? = nil) async -> CorrectionOutcome {
         let instructions = """
         Du korrigierst automatisch erstellte Transkripte gesprochener Sprache (Deutsch, teils Englisch).
         Regeln:
@@ -172,17 +166,29 @@ actor CorrectionService {
         let prompt = "Wortliste: \(list)\n\nTranskript:\n\(raw)"
         let estimatedTokens = raw.count / 2 + 64
 
-        let session = ChatSession(
-            container,
-            instructions: instructions,
-            generateParameters: GenerateParameters(maxTokens: estimatedTokens, temperature: 0),
-            additionalContext: ["enable_thinking": false]
-        )
+        // Antwort entweder vom lokalen Qwen oder von einer OpenAI-kompatiblen API.
+        let generate: @Sendable () async throws -> String
+        if let remote {
+            generate = { try await remote.complete(system: instructions, user: prompt, maxTokens: estimatedTokens) }
+        } else {
+            // Nicht auf einen laufenden Download warten: Diktate sollen nie blockieren.
+            guard let container else {
+                if loading == nil { Task { try? await self.load() } }
+                return CorrectionOutcome(text: raw, applied: false, reason: "Korrekturmodell lädt noch")
+            }
+            let session = ChatSession(
+                container,
+                instructions: instructions,
+                generateParameters: GenerateParameters(maxTokens: estimatedTokens, temperature: 0),
+                additionalContext: ["enable_thinking": false]
+            )
+            generate = { try await session.respond(to: prompt) }
+        }
 
         let answer: String?
         do {
             answer = try await withThrowingTaskGroup(of: String?.self) { group in
-                group.addTask { try await session.respond(to: prompt) }
+                group.addTask { try await generate() }
                 group.addTask {
                     try await Task.sleep(for: timeout)
                     return nil

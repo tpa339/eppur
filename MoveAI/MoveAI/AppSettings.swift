@@ -21,6 +21,26 @@ enum EngineKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// Wer die Nachkorrektur übernimmt.
+enum CorrectionProvider: String, CaseIterable, Identifiable {
+    case local   // Qwen 3.5 2B im Eppur-Dienst
+    case api     // OpenAI-kompatible Chat-API (OpenAI, OpenRouter, Ollama, …)
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .local: "Lokal – Qwen 3.5 2B"
+        case .api: "API – OpenAI-kompatibel"
+        }
+    }
+}
+
+/// Zugangsdaten für eine externe Korrektur – wird an den Dienst durchgereicht.
+struct CorrectionRemote {
+    var baseURL: String
+    var model: String
+    var apiKey: String
+}
+
 enum ClipboardMode: String, CaseIterable, Identifiable {
     /// Ein Eintrag mit Text **und** Bild (PNG) parallel.
     case textAndImage
@@ -60,9 +80,27 @@ final class AppSettings {
     var apiKey: String {
         didSet { Keychain.set(apiKey, account: "apiKey") }
     }
-    /// Qwen-Nachkorrektur (nur lokale Engine).
+    /// Nachkorrektur (Wörterbuch + LLM) an/aus.
     var correction: Bool {
         didSet { defaults.set(correction, forKey: "correction") }
+    }
+    var correctionProvider: CorrectionProvider {
+        didSet { defaults.set(correctionProvider.rawValue, forKey: "correctionProvider") }
+    }
+    var correctionBaseURL: String {
+        didSet { defaults.set(correctionBaseURL, forKey: "correctionBaseURL") }
+    }
+    var correctionModel: String {
+        didSet { defaults.set(correctionModel, forKey: "correctionModel") }
+    }
+    var correctionAPIKey: String {
+        didSet { Keychain.set(correctionAPIKey, account: "correctionApiKey") }
+    }
+
+    /// nil = lokale Korrektur mit Qwen.
+    var correctionRemote: CorrectionRemote? {
+        guard correctionProvider == .api, !correctionBaseURL.isEmpty, !correctionModel.isEmpty else { return nil }
+        return CorrectionRemote(baseURL: correctionBaseURL, model: correctionModel, apiKey: correctionAPIKey)
     }
     /// Text automatisch ins aktive Textfeld einfügen.
     var autoPaste: Bool {
@@ -87,12 +125,21 @@ final class AppSettings {
     init() {
         engine = EngineKind(rawValue: defaults.string(forKey: "engine") ?? "") ?? .local
         correction = defaults.object(forKey: "correction") as? Bool ?? true
+        correctionProvider = CorrectionProvider(rawValue: defaults.string(forKey: "correctionProvider") ?? "") ?? .local
+        correctionBaseURL = defaults.string(forKey: "correctionBaseURL") ?? "https://openrouter.ai/api/v1"
+        correctionModel = defaults.string(forKey: "correctionModel") ?? ""
+        correctionAPIKey = Keychain.get(account: "correctionApiKey") ?? ""
         autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
         soundStyle = SoundStyle(rawValue: defaults.string(forKey: "soundStyle") ?? "") ?? .soft
         captureWindowOnClick = defaults.object(forKey: "captureWindowOnClick") as? Bool ?? true
         captureRegionOnDrag = defaults.object(forKey: "captureRegionOnDrag") as? Bool ?? true
-        language = defaults.string(forKey: "language") ?? "de-DE"
+        // „auto“: Parakeet erkennt Deutsch/Englisch selbst. Einmalig vom alten Standard umstellen.
+        if !defaults.bool(forKey: "languageAutoMigrated") {
+            defaults.set(true, forKey: "languageAutoMigrated")
+            if defaults.string(forKey: "language") == "de-DE" { defaults.removeObject(forKey: "language") }
+        }
+        language = defaults.string(forKey: "language") ?? "auto"
         apiBaseURL = defaults.string(forKey: "apiBaseURL") ?? "http://localhost:8000/v1"
         apiModel = defaults.string(forKey: "apiModel") ?? "whisper-1"
         appendImagePaths = defaults.object(forKey: "appendImagePaths") as? Bool ?? true
@@ -117,9 +164,10 @@ final class AppSettings {
     func makeEngine() -> any TranscriptionEngine {
         switch engine {
         case .local:
-            MoveAIServiceEngine(correct: correction)
+            MoveAIServiceEngine(correct: correction, remote: correctionRemote)
         case .api:
-            OpenAICompatibleEngine(baseURL: apiBaseURL, model: apiModel, apiKey: apiKey)
+            OpenAICompatibleEngine(baseURL: apiBaseURL, model: apiModel, apiKey: apiKey,
+                                   correct: correction, remote: correctionRemote)
         }
     }
 }
