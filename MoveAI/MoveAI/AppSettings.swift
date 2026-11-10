@@ -97,7 +97,21 @@ final class AppSettings {
         apiModel = defaults.string(forKey: "apiModel") ?? "whisper-1"
         appendImagePaths = defaults.object(forKey: "appendImagePaths") as? Bool ?? true
         clipboardMode = ClipboardMode(rawValue: defaults.string(forKey: "clipboardMode") ?? "") ?? .textAndImage
+        Keychain.migrateLegacy(account: "apiKey")
         apiKey = Keychain.get(account: "apiKey") ?? ""
+    }
+
+    /// Einmalig: Einstellungen der alten Bundle-ID übernehmen.
+    static func migrateLegacyDefaults() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "migratedLegacyDefaults") else { return }
+        defaults.set(true, forKey: "migratedLegacyDefaults")
+        guard let legacy = UserDefaults(suiteName: "local.moveai.MoveAI") else { return }
+        let keys = ["engine", "language", "apiBaseURL", "apiModel", "appendImagePaths", "clipboardMode",
+                    "correction", "autoPaste", "sounds", "soundStyle", "captureWindowOnClick", "captureRegionOnDrag"]
+        for key in keys where defaults.object(forKey: key) == nil {
+            if let value = legacy.object(forKey: key) { defaults.set(value, forKey: key) }
+        }
     }
 
     func makeEngine() -> any TranscriptionEngine {
@@ -111,7 +125,7 @@ final class AppSettings {
 }
 
 /// Wortliste für Namen und Fachbegriffe – eine Zeile pro Eintrag.
-/// Der MoveAI-Dienst liest dieselbe Datei bei jeder Korrektur.
+/// Der Eppur-Dienst liest dieselbe Datei bei jeder Korrektur.
 enum Vocabulary {
     static var fileURL: URL { Storage.baseDirectory.appendingPathComponent("vocabulary.txt") }
 
@@ -126,7 +140,14 @@ enum Vocabulary {
 }
 
 enum Keychain {
-    private static let service = "local.moveai.MoveAI"
+    private static let service = "app.eppur.Eppur"
+    private static let legacyService = "local.moveai.MoveAI"
+
+    /// Einmalig: API-Schlüssel aus dem alten Schlüsselbund-Eintrag übernehmen.
+    static func migrateLegacy(account: String) {
+        guard get(account: account) == nil, let old = get(account: account, service: legacyService) else { return }
+        set(old, account: account)
+    }
 
     static func set(_ value: String, account: String) {
         let query: [String: Any] = [
@@ -141,7 +162,7 @@ enum Keychain {
         SecItemAdd(item as CFDictionary, nil)
     }
 
-    static func get(account: String) -> String? {
+    static func get(account: String, service: String = Keychain.service) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

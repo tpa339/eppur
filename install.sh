@@ -1,0 +1,36 @@
+#!/bin/zsh
+# Eppur installieren: lokales Signaturzertifikat (einmalig), Dienst und App bauen,
+# App nach /Applications kopieren und starten.
+#
+# Voraussetzungen: Xcode 27+ mit Metal Toolchain
+#   xcodebuild -downloadComponent MetalToolchain
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+APP_DEST="/Applications/Eppur.app"
+
+echo "▸ 1/4 Signaturzertifikat prüfen"
+"$ROOT/MoveAI/scripts/create-signing-cert.sh"
+
+echo "▸ 2/4 Dienst bauen und installieren (Parakeet + Qwen)"
+"$ROOT/MoveAIServer/install.sh"
+
+echo "▸ 3/4 App bauen (Release)"
+DERIVED="$ROOT/MoveAI/.build-xcode"
+xcodebuild build \
+  -project "$ROOT/MoveAI/MoveAI.xcodeproj" \
+  -scheme MoveAI \
+  -configuration Release \
+  -destination 'platform=macOS' \
+  -derivedDataPath "$DERIVED" \
+  -quiet
+
+echo "▸ 4/4 Nach /Applications installieren"
+# Eine laufende ältere Instanz beendet die neu gestartete App selbst.
+rm -rf "$APP_DEST"
+cp -R "$DERIVED/Build/Products/Release/Eppur.app" "$APP_DEST"
+open "$APP_DEST"
+
+echo
+echo "Fertig: $APP_DEST"
+echo "Beim ersten Start fragt Eppur einmalig nach Mikrofon, Bedienungshilfen und (optional) Bildschirmaufnahme."

@@ -31,6 +31,13 @@ enum Permissions {
         AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
     }
 
+    static var microphoneUndetermined: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined
+    }
+
+    /// Ohne Mikrofon und Bedienungshilfen funktioniert der Kernablauf nicht.
+    static var requiredGranted: Bool { microphone && accessibility }
+
     @discardableResult
     static func requestMicrophone() async -> Bool {
         await AVCaptureDevice.requestAccess(for: .audio)

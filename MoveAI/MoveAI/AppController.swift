@@ -59,9 +59,7 @@ final class AppController {
             DispatchQueue.main.async { self?.pushLevel(CGFloat(level)) }
         }
 
-        Task { await Permissions.requestMicrophone() }
-        if !Permissions.accessibility { Permissions.requestAccessibility() }
-
+        // Keine Systemdialoge beim Start – fehlende Freigaben zeigt das Einrichtungsfenster.
         if settings.engine == .local { MoveAIService.shared.startMonitoring() }
     }
 

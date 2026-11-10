@@ -159,7 +159,7 @@ let server = try HTTPServer(port: port) { request in
     return response
 }
 server.start()
-log("MoveAI-Dienst läuft auf http://127.0.0.1:\(port)")
+log("Eppur-Dienst läuft auf http://127.0.0.1:\(port)")
 
 Task {
     do {

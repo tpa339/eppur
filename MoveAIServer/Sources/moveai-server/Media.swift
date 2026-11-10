@@ -22,7 +22,7 @@ enum MediaError: LocalizedError {
 enum Media {
     static var supportDirectory: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MoveAI", isDirectory: true)
+            .appendingPathComponent("Eppur", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

@@ -9,20 +9,33 @@
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let controller = AppController()
+    let controller: AppController
+
+    override init() {
+        // Vor dem Lesen der Einstellungen: Daten der alten App-Identität übernehmen.
+        Storage.migrateLegacyDirectory()
+        AppSettings.migrateLegacyDefaults()
+        controller = AppController()
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         terminateOtherInstances()
         controller.start()
+        if !Permissions.requiredGranted { SetupWindow.shared.show() }
     }
 
-    /// Nur eine Instanz: zwei Apps würden beide auf Fn reagieren, doppelt einfügen
-    /// und sich gegenseitig den Dienst wegnehmen. Die neueste Instanz gewinnt.
+    /// Nur eine Eppur-Instanz – auch zwischen Alltags- und Dev-Version. Zwei Apps
+    /// würden beide auf Fn reagieren, doppelt einfügen und sich den Dienst wegnehmen.
+    /// Die zuletzt gestartete Instanz gewinnt.
     private func terminateOtherInstances() {
         let me = ProcessInfo.processInfo.processIdentifier
-        guard let bundleID = Bundle.main.bundleIdentifier else { return }
-        for app in NSRunningApplication.runningApplications(withBundleIdentifier: bundleID) where app.processIdentifier != me {
-            Diagnostics.log("Beende ältere Instanz pid=\(app.processIdentifier)")
+        let others = NSWorkspace.shared.runningApplications.filter { app in
+            guard app.processIdentifier != me, let id = app.bundleIdentifier else { return false }
+            return id.hasPrefix("app.eppur.Eppur") || id == "local.moveai.MoveAI"
+        }
+        for app in others {
+            Diagnostics.log("Beende andere Instanz \(app.bundleIdentifier ?? "?") pid=\(app.processIdentifier)")
             app.terminate()
         }
     }

@@ -23,10 +23,32 @@ struct TranscriptEntry: Codable, Identifiable, Hashable {
 
 enum Storage {
     static var baseDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MoveAI", isDirectory: true)
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let base = support.appendingPathComponent("Eppur", isDirectory: true)
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base
+    }
+
+    /// Einmalige Übernahme der Daten aus dem alten Ordner „MoveAI“.
+    static func migrateLegacyDirectory() {
+        let fm = FileManager.default
+        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let legacy = support.appendingPathComponent("MoveAI", isDirectory: true)
+        let current = support.appendingPathComponent("Eppur", isDirectory: true)
+        guard fm.fileExists(atPath: legacy.path) else { return }
+        guard fm.fileExists(atPath: current.path) else {
+            try? fm.moveItem(at: legacy, to: current)
+            return
+        }
+        // Neuer Ordner existiert schon (z. B. weil der Dienst dort installiert wurde):
+        // nur Nutzerdaten übernehmen, die es dort noch nicht gibt. Alte Binaries bleiben zurück.
+        for name in ["history.json", "vocabulary.txt", "Sessions", "app.log"] {
+            let source = legacy.appendingPathComponent(name)
+            let target = current.appendingPathComponent(name)
+            if fm.fileExists(atPath: source.path), !fm.fileExists(atPath: target.path) {
+                try? fm.moveItem(at: source, to: target)
+            }
+        }
     }
 
     static func newSessionDirectory() throws -> URL {
@@ -68,6 +90,18 @@ final class HistoryStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         entries = (try? decoder.decode([TranscriptEntry].self, from: data)) ?? []
+
+        // Pfade aus der Zeit vor dem Umzug (…/Application Support/MoveAI/…) anpassen.
+        let old = "/Application Support/MoveAI/", new = "/Application Support/Eppur/"
+        if entries.contains(where: { $0.imagePaths.contains { $0.contains(old) } || ($0.audioPath?.contains(old) ?? false) }) {
+            entries = entries.map { entry in
+                var entry = entry
+                entry.imagePaths = entry.imagePaths.map { $0.replacingOccurrences(of: old, with: new) }
+                entry.audioPath = entry.audioPath?.replacingOccurrences(of: old, with: new)
+                return entry
+            }
+            save()
+        }
     }
 
     private func save() {

@@ -37,20 +37,8 @@ struct MenuView: View {
         SettingsLink { Text("Einstellungen …") }
             .keyboardShortcut(",")
 
-        Divider()
-
-        Text("Berechtigungen")
-        permissionButton("Bedienungshilfen (Fn-Taste)", granted: Permissions.accessibility) {
-            Permissions.requestAccessibility()
-            Permissions.openPrivacyPane("Privacy_Accessibility")
-        }
-        permissionButton("Bildschirmaufnahme (Screenshots)", granted: Permissions.screenRecording) {
-            Permissions.requestScreenRecording(force: true)
-            Permissions.openPrivacyPane("Privacy_ScreenCapture")
-        }
-        permissionButton("Mikrofon", granted: Permissions.microphone) {
-            Task { await Permissions.requestMicrophone() }
-            Permissions.openPrivacyPane("Privacy_Microphone")
+        Button(Permissions.requiredGranted ? "Einrichtung …" : "⚠︎ Einrichtung – Freigabe fehlt …") {
+            SetupWindow.shared.show()
         }
 
         Divider()
@@ -68,12 +56,6 @@ struct MenuView: View {
         let asr = health.asrReady ? "Parakeet ✓" : "Parakeet lädt …"
         let llm = health.correctionReady ? "Qwen ✓" : "Qwen lädt …"
         return "Dienst: \(asr) · \(llm)"
-    }
-
-    private func permissionButton(_ title: String, granted: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text("\(granted ? "✓" : "✗")  \(title)")
-        }
     }
 }
 
@@ -249,6 +231,12 @@ private struct GeneralSettings: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+            Section {
+                LaunchAtLoginToggle()
+                Button("Freigaben prüfen …") { SetupWindow.shared.show() }
+            } header: {
+                Text("Start & Freigaben")
             }
             Section {
                 Toggle("Automatisch in die aktive App einfügen", isOn: $settings.autoPaste)

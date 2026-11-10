@@ -1,12 +1,12 @@
 #!/bin/zsh
 # Baut den MoveAI-Dienst (Release) und installiert ihn dorthin, wo die App ihn startet:
-#   ~/Library/Application Support/MoveAI/bin/moveai-server
+#   ~/Library/Application Support/Eppur/bin/moveai-server
 # Voraussetzung: Xcode mit Metal Toolchain (xcodebuild -downloadComponent MetalToolchain).
 set -euo pipefail
 
 cd "$(dirname "$0")"
 DERIVED=".build-xcode"
-DEST="$HOME/Library/Application Support/MoveAI/bin"
+DEST="$HOME/Library/Application Support/Eppur/bin"
 
 xcodebuild build \
   -scheme MoveAIServer \
