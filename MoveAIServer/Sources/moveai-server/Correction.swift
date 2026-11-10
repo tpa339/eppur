@@ -23,13 +23,19 @@ actor CorrectionService {
 
     private var container: ModelContainer?
     private var loading: Task<ModelContainer, Error>?
+    private var warmedUp = false
+    /// MLX verträgt keine parallelen Generierungen auf demselben Modell (Absturz).
+    /// Das Actor-Modell allein reicht nicht, weil `await` Wiedereintritt erlaubt.
+    private let generationGate = AsyncGate()
 
-    var isReady: Bool { container != nil }
+    /// Erst nach dem Aufwärmen „bereit“ melden.
+    var isReady: Bool { container != nil && warmedUp }
 
     func load() async throws {
         _ = try await readyContainer()
         // Aufwärmen: der erste Durchlauf kompiliert Metal-Kernels (~7 s).
         _ = await correctChunk("Das ist ein kurzer Test.", vocabulary: [], timeout: .seconds(30))
+        warmedUp = true
     }
 
     // MARK: - Wörterbuch-Abgleich (deterministisch, vor dem LLM)
@@ -184,7 +190,18 @@ actor CorrectionService {
             )
             // Die Sitzung wird nur in diesem einen Aufruf benutzt.
             let box = UncheckedSendable(session)
-            generate = { try await box.value.respond(to: prompt) }
+            let gate = generationGate
+            generate = {
+                await gate.enter()
+                do {
+                    let answer = try await box.value.respond(to: prompt)
+                    await gate.leave()
+                    return answer
+                } catch {
+                    await gate.leave()
+                    throw error
+                }
+            }
         }
 
         let answer: String?
@@ -336,4 +353,19 @@ actor CorrectionService {
 private struct UncheckedSendable<T>: @unchecked Sendable {
     let value: T
     init(_ value: T) { self.value = value }
+}
+
+/// Einfache asynchrone Sperre: immer nur ein Aufrufer gleichzeitig, Reihenfolge wie Ankunft.
+actor AsyncGate {
+    private var busy = false
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func enter() async {
+        guard busy else { busy = true; return }
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func leave() {
+        if waiting.isEmpty { busy = false } else { waiting.removeFirst().resume() }
+    }
 }
