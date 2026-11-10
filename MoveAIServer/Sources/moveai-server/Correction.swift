@@ -182,7 +182,9 @@ actor CorrectionService {
                 generateParameters: GenerateParameters(maxTokens: estimatedTokens, temperature: 0),
                 additionalContext: ["enable_thinking": false]
             )
-            generate = { try await session.respond(to: prompt) }
+            // Die Sitzung wird nur in diesem einen Aufruf benutzt.
+            let box = UncheckedSendable(session)
+            generate = { try await box.value.respond(to: prompt) }
         }
 
         let answer: String?
@@ -328,4 +330,10 @@ actor CorrectionService {
         }
         return result
     }
+}
+
+/// Kapselt einen nicht-Sendable-Wert, der nachweislich nur von einer Aufgabe benutzt wird.
+private struct UncheckedSendable<T>: @unchecked Sendable {
+    let value: T
+    init(_ value: T) { self.value = value }
 }

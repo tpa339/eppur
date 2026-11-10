@@ -66,7 +66,16 @@ func route(_ request: HTTPRequest) async -> HTTPResponse {
                 "correction_ready": await corrector.isReady,
                 "yt_dlp": Media.findExecutable("yt-dlp") != nil,
                 "uptime_s": Int(Date().timeIntervalSince(startedAt)),
+                // Für Updates: Die App startet den Dienst neu, wenn die Datei neuer ist als der Prozess.
+                "started_at": startedAt.timeIntervalSince1970,
+                "pid": Int(ProcessInfo.processInfo.processIdentifier),
+                "executable": CommandLine.arguments.first ?? "",
             ])
+
+        case ("POST", "/v1/shutdown"):
+            log("Beende auf Anfrage")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { exit(0) }
+            return .json(["status": "stopping"])
 
         case ("POST", "/v1/audio/transcriptions"):
             let parts = Multipart.parse(request.body, contentType: request.header("content-type") ?? "")
