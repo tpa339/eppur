@@ -26,10 +26,11 @@ xcodebuild build \
   -quiet
 
 echo "▸ 4/4 Nach /Applications installieren"
-# Eine laufende ältere Instanz beendet die neu gestartete App selbst.
 rm -rf "$APP_DEST"
 cp -R "$DERIVED/Build/Products/Release/Eppur.app" "$APP_DEST"
-open "$APP_DEST"
+# -n: immer eine neue Instanz starten. Ohne -n holt macOS nur die laufende (alte)
+# App nach vorn. Die neue Instanz beendet die alte selbst und ersetzt den Dienst.
+open -n "$APP_DEST"
 
 echo
 echo "Fertig: $APP_DEST"
