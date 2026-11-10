@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# SwiftPM / Builds
+.build/
+.build-xcode/
+.swiftpm/
+MoveAIServer/.claude/
+
+# Claude Code (lokal)
+.claude/
+
+# Signatur-Material nie einchecken
+*.p12
+*.pem
+*.cer
+*.key
