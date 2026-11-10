@@ -15,7 +15,7 @@ enum EngineKind: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .local: "Notchly lokal (Parakeet)"
+        case .local: "Eppur lokal (Parakeet)"
         case .api: "Eigene API (OpenAI-kompatibel)"
         }
     }

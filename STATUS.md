@@ -6,7 +6,7 @@ Aktualisiert: 2026-11-10
 Im Alltag nutzen und Auffälligkeiten sammeln (Korrektur-Qualität, Wörterbuch); dann nächstes Feature wählen (MCP-Server, Session-Zuordnung, Qwen3-ASR).
 
 ## Zuletzt
-- 2026-11-10: App heißt jetzt **Notchly** (Produktname + Icon `MoveAI/design/notchly-icon-1024.png`); Einstellungen als Tabs (Allgemein, Transkription, Wörterbuch, Screenshots, Klänge); Screenshot per Klick und per Ziehen getrennt schaltbar; eigene synthetische Klänge (Sanft/Tropfen/Glocke) mit Probehören; nur noch eine App-Instanz (ältere wird beendet) und ein Wiederholversuch bei Dienst-Verbindungsfehler (Ursache „Network Error“: zwei parallele Instanzen).
+- 2026-11-10: App heißt jetzt **Eppur** (vorher Notchly; Produktname + Icon `MoveAI/design/eppur-icon-1024.png`); Einstellungen als Tabs (Allgemein, Transkription, Wörterbuch, Screenshots, Klänge); Screenshot per Klick und per Ziehen getrennt schaltbar; eigene synthetische Klänge (Sanft/Tropfen/Glocke) mit Probehören; nur noch eine App-Instanz (ältere wird beendet) und ein Wiederholversuch bei Dienst-Verbindungsfehler (Ursache „Network Error“: zwei parallele Instanzen).
 - 2026-11-10: Töne bei Aufnahme-Start („Tink“) und -Ende („Pop“), abschaltbar in Menü und Einstellungen. Neubau behielt alle Freigaben (AX/Screen/Mic = true).
 - 2026-11-10: Praxistest erfolgreich: Fn-Diktat wird in Ghostty automatisch eingefügt, Screenshots (Fenster/Bereich) landen mit Pfad im Text. TCC-Einträge per `tccutil reset` bereinigt und für die neue Signatur neu erteilt (Log: AX=true Screen=true Mic=true). Diagnose-Log `~/Library/Application Support/MoveAI/app.log`.
 - 2026-11-10: Freigaben-Problem behoben: App jetzt mit lokalem Zertifikat „MoveAI Local Signing“ signiert (designated requirement = Bundle-ID + Zertifikat, stabil über Neubauten). Bildschirmaufnahme-Dialog max. 1× pro Start; Auto-Einfügen sendet immer Cmd+V an die aktive App (Feldprüfung entfernt); Notch meldet fehlende Freigaben.
@@ -30,7 +30,7 @@ Im Alltag nutzen und Auffälligkeiten sammeln (Korrektur-Qualität, Wörterbuch)
 - [ ] Veröffentlichung auf GitHub vorbereiten (README, Lizenz, Build-Anleitung); fertige App-Downloads bräuchten Developer ID + Notarisierung (99 $/Jahr)
 
 ## Entscheidungen
-- [x] App-Name → Notchly
+- [x] App-Name → Eppur (Galilei: „Eppur si muove“ – mit Grundannahmen brechen)
 - [x] Signatur → lokales Zertifikat (kein Apple-Account)
 - [ ] Veröffentlichung: nur Quellcode (ohne Apple-Account) oder fertige App (Developer ID nötig)? Empfehlung: erst Quellcode
 - [x] Apple SpeechAnalyzer raus → Nutzer unzufrieden mit Qualität

@@ -32,7 +32,7 @@ enum TranscriptionError: LocalizedError {
         case .badURL(let url): "Ungültige API-URL: \(url)"
         case .http(let code, let body): "API-Fehler \(code): \(body.prefix(200))"
         case .emptyResponse: "Leere Antwort der API"
-        case .serviceUnavailable: "Notchly-Dienst nicht erreichbar"
+        case .serviceUnavailable: "Eppur-Dienst nicht erreichbar"
         }
     }
 }

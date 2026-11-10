@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "946269D330A38F0C00454281"
-               BuildableName = "Notchly.app"
+               BuildableName = "Eppur.app"
                ReferencedContainer = "container:MoveAI.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "946269D330A38F0C00454281"
-            BuildableName = "Notchly.app"
+            BuildableName = "Eppur.app"
             ReferencedContainer = "container:MoveAI.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -61,7 +61,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "946269D330A38F0C00454281"
-            BuildableName = "Notchly.app"
+            BuildableName = "Eppur.app"
             ReferencedContainer = "container:MoveAI.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

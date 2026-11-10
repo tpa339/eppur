@@ -55,7 +55,7 @@ struct MenuView: View {
 
         Divider()
 
-        Button("Notchly beenden") { NSApp.terminate(nil) }
+        Button("Eppur beenden") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 
@@ -243,7 +243,7 @@ private struct GeneralSettings: View {
                         .resizable()
                         .frame(width: 56, height: 56)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Notchly").font(.title2.weight(.semibold))
+                        Text("Eppur").font(.title2.weight(.semibold))
                         Text("Fn halten und sprechen. Loslassen fügt den Text ein.")
                             .foregroundStyle(.secondary)
                     }
@@ -367,7 +367,7 @@ private struct TranscriptionSettings: View {
                 Text("Transkription")
             } footer: {
                 if settings.engine == .local {
-                    SettingsHint(text: "Läuft komplett lokal im Notchly-Dienst (http://127.0.0.1:\(MoveAIService.port)). Die Korrektur behebt nur Schreibfehler, Namen und Satzzeichen; zu starke Änderungen werden verworfen.")
+                    SettingsHint(text: "Läuft komplett lokal im Eppur-Dienst (http://127.0.0.1:\(MoveAIService.port)). Die Korrektur behebt nur Schreibfehler, Namen und Satzzeichen; zu starke Änderungen werden verworfen.")
                 }
             }
 

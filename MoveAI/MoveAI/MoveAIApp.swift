@@ -37,7 +37,7 @@ struct MoveAIApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        MenuBarExtra("Notchly", systemImage: "waveform") {
+        MenuBarExtra("Eppur", systemImage: "waveform") {
             MenuView(controller: delegate.controller)
         }
 
