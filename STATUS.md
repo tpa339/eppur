@@ -3,14 +3,14 @@ Zustand: aktiv
 Aktualisiert: 2026-11-10
 
 ## Nächster Schritt
-`./install.sh` erneut ausführen (Dienst mit API-Korrektur + App), dann Freigaben im Einrichtungsfenster prüfen.
+`./install.sh` ausführen (neues Zertifikat „Eppur Local Signing“ → Freigaben einmalig neu erteilen), danach Praxistest.
 
 ## Zuletzt
+- 2026-11-10: Interne Namen auf Eppur umgestellt (Eppur.xcodeproj, EppurServer, eppur-server, Zertifikat „Eppur Local Signing“); Lizenz Apache-2.0 + NOTICE; neues flaches App-Icon (generiert, maskiert) und Template-Menüleisten-Symbol; privates GitHub-Repo `eppur`. Fixes: Dev-Build verdrängt installierte App nicht mehr, veraltete Dienste werden ersetzt, MLX-Generierungen serialisiert.
 - 2026-11-10: Sprache standardmäßig „Automatisch“ (Parakeet erkennt de/en selbst – mit synthetischer Sprache geprüft, identisch mit/ohne Vorgabe). Korrektur wahlweise lokal (Qwen) oder per OpenAI-kompatibler Chat-API (OpenAI, OpenRouter, Ollama …), Wörterbuch + Umformulierungsschutz gelten für beide; auch für die API-Spracherkennung nutzbar.
 - 2026-11-10: Endgültige Bundle-ID `app.eppur.Eppur` (Debug: `app.eppur.Eppur.dev` „Eppur Dev“); Datenordner `Application Support/Eppur` mit Übernahme aus `MoveAI`; Einrichtungsfenster statt Systemdialogen beim Start; Start beim Anmelden (SMAppService); `install.sh` für Zertifikat + Dienst + App nach /Applications; README. Git-Repo angelegt.
 - 2026-11-10: App heißt jetzt **Eppur** (vorher Notchly; Produktname + Icon `MoveAI/design/eppur-icon-1024.png`); Einstellungen als Tabs (Allgemein, Transkription, Wörterbuch, Screenshots, Klänge); Screenshot per Klick und per Ziehen getrennt schaltbar; eigene synthetische Klänge (Sanft/Tropfen/Glocke) mit Probehören; nur noch eine App-Instanz (ältere wird beendet) und ein Wiederholversuch bei Dienst-Verbindungsfehler (Ursache „Network Error“: zwei parallele Instanzen).
 - 2026-11-10: Töne bei Aufnahme-Start („Tink“) und -Ende („Pop“), abschaltbar in Menü und Einstellungen. Neubau behielt alle Freigaben (AX/Screen/Mic = true).
-- 2026-11-10: Praxistest erfolgreich: Fn-Diktat wird in Ghostty automatisch eingefügt, Screenshots (Fenster/Bereich) landen mit Pfad im Text. TCC-Einträge per `tccutil reset` bereinigt und für die neue Signatur neu erteilt (Log: AX=true Screen=true Mic=true). Diagnose-Log `~/Library/Application Support/MoveAI/app.log`.
 
 ## To-dos
 - [x] Metal Toolchain installieren
@@ -27,12 +27,14 @@ Aktualisiert: 2026-11-10
 - [x] Alte MoveAI-Einträge in Datenschutz-Einstellungen entfernen und Freigaben einmal neu erteilen
 - [ ] Später: automatische Session-Zuordnung
 - [x] Bundle-ID und Datenordner auf Eppur umgestellt
-- [ ] Restliche interne Namen angleichen (Xcode-Target/Ordner `MoveAI`, `moveai-server`, Zertifikat „MoveAI Local Signing“)
-- [ ] Name „Eppur“ vor Veröffentlichung auf Kollisionen prüfen (Marke, GitHub)
+- [x] Restliche interne Namen angleichen
+- [x] Name „Eppur“ geprüft: keine App/kein Repo gefunden (Markenregister nicht direkt abgefragt)
+- [ ] Vor öffentlicher Freigabe: Markenregister (EUIPO/DPMA) direkt prüfen
 - [ ] Veröffentlichung auf GitHub vorbereiten (README, Lizenz, Build-Anleitung); fertige App-Downloads bräuchten Developer ID + Notarisierung (99 $/Jahr)
 
-- [ ] Externe Korrektur mit echtem API-Schlüssel testen (OpenRouter/OpenAI)
-- [ ] Neues Menüleisten-Symbol (Nutzer liefert Inspiration)
+- [ ] Externe Korrektur mit echtem API-Schlüssel testen (Fehlerfälle geprüft)
+- [ ] Optional: altes Zertifikat „MoveAI Local Signing“ und Ordner `Application Support/MoveAI` entfernen
+- [x] Neues App-Icon und Menüleisten-Symbol
 
 ## Entscheidungen
 - [x] App-Name → Eppur (Galilei: „Eppur si muove“ – mit Grundannahmen brechen)

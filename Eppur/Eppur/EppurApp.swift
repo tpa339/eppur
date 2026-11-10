@@ -60,8 +60,12 @@ struct EppurApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        MenuBarExtra("Eppur", systemImage: "waveform") {
+        MenuBarExtra {
             MenuView(controller: delegate.controller)
+        } label: {
+            // Template-Bild: macOS färbt es passend zu heller/dunkler Menüleiste.
+            Image("MenuBarIcon")
+                .accessibilityLabel("Eppur")
         }
 
         Window("Transkripte", id: "history") {
