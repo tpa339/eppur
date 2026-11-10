@@ -10,7 +10,7 @@ DerivedData/
 .build/
 .build-xcode/
 .swiftpm/
-MoveAIServer/.claude/
+EppurServer/.claude/
 
 # Claude Code (lokal)
 .claude/

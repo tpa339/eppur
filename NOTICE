@@ -1,0 +1,25 @@
+Eppur
+Copyright 2026 Eppur contributors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This project uses the following third-party software (fetched as Swift
+packages at build time, not vendored in this repository):
+
+- FluidAudio (Apache-2.0)            https://github.com/FluidInference/FluidAudio
+- mlx-swift (MIT)                    https://github.com/ml-explore/mlx-swift
+- mlx-swift-lm (MIT)                 https://github.com/ml-explore/mlx-swift-lm
+- swift-transformers (Apache-2.0)    https://github.com/huggingface/swift-transformers
+- swift-huggingface (Apache-2.0)     https://github.com/huggingface/swift-huggingface
+- swift-jinja (Apache-2.0)           https://github.com/huggingface/swift-jinja
+
+Models downloaded at runtime (not part of this repository, own licenses):
+
+- Parakeet TDT 0.6B v3 by NVIDIA, CoreML conversion by FluidInference
+  License: CC-BY-4.0
+  https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+  https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml
+- Qwen3.5-2B by Alibaba Qwen team, 4-bit MLX conversion by mlx-community
+  License: Apache-2.0
+  https://huggingface.co/Qwen/Qwen3.5-2B
+  https://huggingface.co/mlx-community/Qwen3.5-2B-4bit

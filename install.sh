@@ -10,16 +10,16 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP_DEST="/Applications/Eppur.app"
 
 echo "▸ 1/4 Signaturzertifikat prüfen"
-"$ROOT/MoveAI/scripts/create-signing-cert.sh"
+"$ROOT/Eppur/scripts/create-signing-cert.sh"
 
 echo "▸ 2/4 Dienst bauen und installieren (Parakeet + Qwen)"
-"$ROOT/MoveAIServer/install.sh"
+"$ROOT/EppurServer/install.sh"
 
 echo "▸ 3/4 App bauen (Release)"
-DERIVED="$ROOT/MoveAI/.build-xcode"
+DERIVED="$ROOT/Eppur/.build-xcode"
 xcodebuild build \
-  -project "$ROOT/MoveAI/MoveAI.xcodeproj" \
-  -scheme MoveAI \
+  -project "$ROOT/Eppur/Eppur.xcodeproj" \
+  -scheme Eppur \
   -configuration Release \
   -destination 'platform=macOS' \
   -derivedDataPath "$DERIVED" \

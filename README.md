@@ -25,7 +25,7 @@ git clone <repo-url> eppur && cd eppur
 
 Das Skript
 
-1. legt einmalig ein lokales Signaturzertifikat „MoveAI Local Signing“ im Schlüsselbund an (fragt nach deinem Passwort),
+1. legt einmalig ein lokales Signaturzertifikat „Eppur Local Signing“ im Schlüsselbund an (fragt nach deinem Passwort),
 2. baut und installiert den Dienst nach `~/Library/Application Support/Eppur/bin`,
 3. baut die App und installiert sie nach `/Applications/Eppur.app`.
 
@@ -73,6 +73,10 @@ Wörterbuch: `~/Library/Application Support/Eppur/vocabulary.txt` (eine Zeile pr
 
 ## Entwicklung
 
-- App: `MoveAI/MoveAI.xcodeproj` – Debug-Builds heißen **„Eppur Dev“** (`app.eppur.Eppur.dev`) und berühren die Freigaben der installierten App nicht.
-- Dienst: `MoveAIServer/` (Swift Package), installieren mit `MoveAIServer/install.sh`.
+- App: `Eppur/Eppur.xcodeproj` – Debug-Builds heißen **„Eppur Dev“** (`app.eppur.Eppur.dev`) und berühren die Freigaben der installierten App nicht.
+- Dienst: `EppurServer/` (Swift Package), installieren mit `EppurServer/install.sh`.
 - Diagnose: `~/Library/Application Support/Eppur/app.log` und `server.log`.
+
+## Lizenz
+
+Apache License 2.0 – siehe [LICENSE](LICENSE). Verwendete Bibliotheken und Modelle mit ihren Lizenzen stehen in [NOTICE](NOTICE). Die Modelle (Parakeet: CC-BY-4.0, Qwen 3.5: Apache-2.0) werden beim ersten Start heruntergeladen und sind nicht Teil dieses Repositorys.
