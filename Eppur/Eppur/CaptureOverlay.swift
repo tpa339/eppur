@@ -92,6 +92,17 @@ final class CaptureView: NSView {
 
     // MARK: Maus
 
+    /// Scrollen geht durch die Screenshot-Ebene hindurch an die App unter dem Mauszeiger –
+    /// so lässt sich beim Diktieren durch lange Seiten scrollen und mehrfach markieren.
+    override func scrollWheel(with event: NSEvent) {
+        guard let window, let cgEvent = event.cgEvent?.copy() else { return }
+        let cocoaPoint = window.convertPoint(toScreen: event.locationInWindow)
+        guard let pid = ScreenCapture.ownerPIDUnder(ScreenGeometry.cgPoint(fromCocoa: cocoaPoint)) else { return }
+        cgEvent.postToPid(pid)
+        // Fensterrahmen kann sich durch das Scrollen nicht ändern, Inhalt schon: Markierung neu zeichnen.
+        needsDisplay = true
+    }
+
     override func mouseMoved(with event: NSEvent) {
         NSCursor.crosshair.set()
         guard let window else { return }

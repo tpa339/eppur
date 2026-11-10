@@ -83,6 +83,22 @@ enum ScreenCapture {
     }
 
     /// Oberstes normales Fenster (Ebene 0) unter einem Punkt, ohne eigene Fenster.
+    /// Prozess-ID der App, deren Fenster unter dem Punkt liegt (für weitergereichte Scroll-Ereignisse).
+    static func ownerPIDUnder(_ point: CGPoint) -> pid_t? {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] else { return nil }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        for info in list {
+            guard (info[kCGWindowLayer as String] as? Int) == 0,
+                  let pid = info[kCGWindowOwnerPID as String] as? Int32, pid != ownPID,
+                  let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
+                  bounds.contains(point) else { continue }
+            return pid
+        }
+        return nil
+    }
+
     static func windowUnder(_ point: CGPoint) -> (id: CGWindowID, frame: CGRect)? {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
                 as? [[String: Any]] else { return nil }
