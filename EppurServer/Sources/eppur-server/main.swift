@@ -56,6 +56,11 @@ func process(file: URL, language: String?, correct: Bool, extraVocabulary: [Stri
 
 func route(_ request: HTTPRequest) async -> HTTPResponse {
     do {
+        // Lokale CLI & MCP (abschaltbar in der App)
+        if request.path == "/mcp" || request.path.hasPrefix("/v1/transcripts") {
+            guard Integrations.isEnabled else { return .error("Lokale CLI & MCP ist in Eppur ausgeschaltet", status: 403) }
+            return try await routeIntegrations(request)
+        }
         switch (request.method, request.path) {
         case ("GET", "/health"), ("GET", "/"):
             return .json([
@@ -162,6 +167,39 @@ func route(_ request: HTTPRequest) async -> HTTPResponse {
     } catch {
         log("Fehler \(request.path): \(error)")
         return .error(error.localizedDescription, status: 500)
+    }
+}
+
+func routeIntegrations(_ request: HTTPRequest) async throws -> HTTPResponse {
+    switch (request.method, request.path) {
+    case ("POST", "/mcp"):
+        let parsed = try JSONSerialization.jsonObject(with: request.body)
+        if let batch = parsed as? [[String: Any]] {
+            var replies: [[String: Any]] = []
+            for message in batch { if let reply = await MCP.handle(message) { replies.append(reply) } }
+            return replies.isEmpty ? HTTPResponse(status: 202, contentType: "application/json", body: Data()) : .jsonArray(replies)
+        }
+        guard let message = parsed as? [String: Any] else { return .error("JSON-RPC erwartet", status: 400) }
+        guard let reply = await MCP.handle(message) else {
+            return HTTPResponse(status: 202, contentType: "application/json", body: Data())
+        }
+        return .json(reply)
+    case ("GET", "/mcp"), ("DELETE", "/mcp"):
+        // Kein Server-Push (SSE) nötig: Werkzeuge antworten direkt.
+        return .error("Nur POST wird unterstützt", status: 405)
+    case ("GET", "/v1/transcripts"):
+        let limit = Int(request.query["limit"] ?? "") ?? 20
+        return .jsonArray(History.search(request.query["query"], limit: limit).map(\.json))
+    case ("GET", "/v1/transcripts/latest"):
+        return .json(History.search(nil, limit: 1).first?.json ?? [:])
+    case ("GET", _) where request.path.hasPrefix("/v1/transcripts/"):
+        let id = String(request.path.dropFirst("/v1/transcripts/".count))
+        guard let entry = History.load().first(where: { $0.id.caseInsensitiveCompare(id) == .orderedSame }) else {
+            return .error("Kein Diktat mit ID \(id)", status: 404)
+        }
+        return .json(entry.json)
+    default:
+        return .error("Unbekannter Pfad \(request.method) \(request.path)", status: 404)
     }
 }
 

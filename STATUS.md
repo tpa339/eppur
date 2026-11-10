@@ -3,14 +3,14 @@ Zustand: aktiv
 Aktualisiert: 2026-11-10
 
 ## Nächster Schritt
-`./install.sh` ausführen (neues Zertifikat „Eppur Local Signing“ → Freigaben einmalig neu erteilen), danach Praxistest.
+`./install.sh` ausführen (Dienst mit MCP + CLI `eppur`), dann `claude mcp add --transport http eppur http://127.0.0.1:47823/mcp` und in Claude Code testen.
 
 ## Zuletzt
+- 2026-11-10: Lokale CLI & MCP (ohne Schlüssel, Entscheidung Nutzer): MCP-Endpunkt `/mcp` (Streamable HTTP, 7 Werkzeuge), CLI `eppur` (list/search/show/transcribe/correct/export/mcp), Tab „Integrationen“ mit Schalter. Gegen Test-Dienst geprüft. Scrollen während Fn wird durchgereicht. Freigaben nach Zertifikatswechsel neu erteilt (AX/Screen/Mic = true).
 - 2026-11-10: Interne Namen auf Eppur umgestellt (Eppur.xcodeproj, EppurServer, eppur-server, Zertifikat „Eppur Local Signing“); Lizenz Apache-2.0 + NOTICE; neues flaches App-Icon (generiert, maskiert) und Template-Menüleisten-Symbol; privates GitHub-Repo `eppur`. Fixes: Dev-Build verdrängt installierte App nicht mehr, veraltete Dienste werden ersetzt, MLX-Generierungen serialisiert.
 - 2026-11-10: Sprache standardmäßig „Automatisch“ (Parakeet erkennt de/en selbst – mit synthetischer Sprache geprüft, identisch mit/ohne Vorgabe). Korrektur wahlweise lokal (Qwen) oder per OpenAI-kompatibler Chat-API (OpenAI, OpenRouter, Ollama …), Wörterbuch + Umformulierungsschutz gelten für beide; auch für die API-Spracherkennung nutzbar.
 - 2026-11-10: Endgültige Bundle-ID `app.eppur.Eppur` (Debug: `app.eppur.Eppur.dev` „Eppur Dev“); Datenordner `Application Support/Eppur` mit Übernahme aus `MoveAI`; Einrichtungsfenster statt Systemdialogen beim Start; Start beim Anmelden (SMAppService); `install.sh` für Zertifikat + Dienst + App nach /Applications; README. Git-Repo angelegt.
 - 2026-11-10: App heißt jetzt **Eppur** (vorher Notchly; Produktname + Icon `MoveAI/design/eppur-icon-1024.png`); Einstellungen als Tabs (Allgemein, Transkription, Wörterbuch, Screenshots, Klänge); Screenshot per Klick und per Ziehen getrennt schaltbar; eigene synthetische Klänge (Sanft/Tropfen/Glocke) mit Probehören; nur noch eine App-Instanz (ältere wird beendet) und ein Wiederholversuch bei Dienst-Verbindungsfehler (Ursache „Network Error“: zwei parallele Instanzen).
-- 2026-11-10: Töne bei Aufnahme-Start („Tink“) und -Ende („Pop“), abschaltbar in Menü und Einstellungen. Neubau behielt alle Freigaben (AX/Screen/Mic = true).
 
 ## To-dos
 - [x] Metal Toolchain installieren
@@ -22,7 +22,8 @@ Aktualisiert: 2026-11-10
 - [ ] Fn-Erkennung, Overlays, Auto-Einfügen im echten Gebrauch testen
 - [ ] Fn-Taste in Systemeinstellungen → Tastatur auf „Keine Aktion“ stellen
 - [ ] Optional: Qwen3-ASR 1.7B als zweite Engine; CTC-Vokabular-Boosting von FluidAudio prüfen
-- [ ] Optional: MCP-Server für Agenten auf Basis der HTTP-API
+- [x] MCP-Server und CLI für Agenten
+- [ ] MCP mit echtem Claude-Code-Client testen
 - [x] Stabile Code-Signatur (lokales Zertifikat, Entscheidung Nutzer)
 - [x] Alte MoveAI-Einträge in Datenschutz-Einstellungen entfernen und Freigaben einmal neu erteilen
 - [ ] Später: automatische Session-Zuordnung

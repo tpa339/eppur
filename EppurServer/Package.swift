@@ -31,5 +31,10 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        // Kommandozeile: eppur list / search / transcribe / export / mcp
+        .executableTarget(
+            name: "eppur",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
     ]
 )

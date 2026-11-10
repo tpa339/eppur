@@ -200,6 +200,7 @@ struct SettingsView: View {
             Tab("Wörterbuch", systemImage: "character.book.closed") { VocabularySettings() }
             Tab("Screenshots", systemImage: "camera.viewfinder") { ScreenshotSettings(settings: settings) }
             Tab("Klänge", systemImage: "speaker.wave.2") { SoundSettings(settings: settings) }
+            Tab("Integrationen", systemImage: "terminal") { IntegrationSettings() }
         }
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
@@ -414,5 +415,101 @@ private struct ServiceStatusRow: View {
             Text(ready == true ? "bereit" : (ready == nil ? "nicht erreichbar" : "lädt …"))
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+// MARK: - Integrationen (lokale CLI & MCP)
+
+private struct IntegrationSettings: View {
+    @State private var enabled = Integrations.isEnabled
+    @State private var copied: String?
+
+    private var mcpCommand: String { "claude mcp add --transport http eppur \(EppurService.baseURL.absoluteString)/mcp" }
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(isOn: $enabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Lokale CLI & MCP")
+                        Text("KI-Agenten und die Kommandozeile können Transkripte lesen, Dateien und Links transkribieren und Text korrigieren. Alles bleibt auf diesem Mac.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .onChange(of: enabled) { _, value in Integrations.setEnabled(value) }
+
+                HStack(spacing: 6) {
+                    Circle().fill(statusColor).frame(width: 8, height: 8)
+                    Text(statusText).foregroundStyle(.secondary)
+                }
+            } footer: {
+                SettingsHint(text: "Ohne Zugriffsschlüssel: Jedes Programm auf diesem Mac kann die Schnittstelle nutzen. Von außen ist sie nicht erreichbar.")
+            }
+
+            Section("MCP für KI-Agenten") {
+                LabeledContent("Claude Code") {
+                    copyButton(mcpCommand, label: "Befehl kopieren")
+                }
+                Text(mcpCommand)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Kommandozeile") {
+                LabeledContent("eppur") {
+                    if Integrations.cliInstalled {
+                        Label("Installiert", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    } else {
+                        Text("Nicht installiert – install.sh ausführen").foregroundStyle(.secondary)
+                    }
+                }
+                LabeledContent("Ausprobieren") {
+                    copyButton("eppur list --limit 3", label: "eppur list --limit 3")
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var statusColor: Color {
+        guard enabled else { return .secondary }
+        return EppurService.shared.health != nil ? .green : .orange
+    }
+
+    private var statusText: String {
+        guard enabled else { return "Ausgeschaltet" }
+        return EppurService.shared.health != nil ? "Bedient lokale CLI- und MCP-Clients" : "Dienst startet …"
+    }
+
+    private func copyButton(_ text: String, label: String) -> some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            copied = text
+        } label: {
+            Label(copied == text ? "Kopiert" : label, systemImage: copied == text ? "checkmark" : "doc.on.doc")
+                .font(.system(.callout, design: text == label ? .monospaced : .default))
+        }
+    }
+}
+
+/// Schalter für den Dienst: Die Datei „integrations-disabled“ sperrt CLI & MCP.
+enum Integrations {
+    private static var flagURL: URL { Storage.baseDirectory.appendingPathComponent("integrations-disabled") }
+
+    static var isEnabled: Bool { !FileManager.default.fileExists(atPath: flagURL.path) }
+
+    static func setEnabled(_ enabled: Bool) {
+        if enabled {
+            try? FileManager.default.removeItem(at: flagURL)
+        } else {
+            FileManager.default.createFile(atPath: flagURL.path, contents: Data())
+        }
+    }
+
+    static var cliInstalled: Bool {
+        FileManager.default.isExecutableFile(atPath: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local/bin/eppur").path)
     }
 }

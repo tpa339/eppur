@@ -26,6 +26,11 @@ struct HTTPResponse: Sendable {
         return HTTPResponse(status: status, contentType: "application/json; charset=utf-8", body: data)
     }
 
+    static func jsonArray(_ array: [Any], status: Int = 200) -> HTTPResponse {
+        let data = (try? JSONSerialization.data(withJSONObject: array, options: [.prettyPrinted, .sortedKeys])) ?? Data("[]".utf8)
+        return HTTPResponse(status: status, contentType: "application/json; charset=utf-8", body: data)
+    }
+
     static func error(_ message: String, status: Int) -> HTTPResponse {
         json(["error": message], status: status)
     }
@@ -125,7 +130,7 @@ final class HTTPServer: @unchecked Sendable {
     }
 
     private func send(_ response: HTTPResponse, on connection: NWConnection) {
-        let reason = [200: "OK", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed",
+        let reason = [200: "OK", 202: "Accepted", 403: "Forbidden", 400: "Bad Request", 404: "Not Found", 405: "Method Not Allowed",
                       413: "Payload Too Large", 500: "Internal Server Error", 503: "Service Unavailable"][response.status] ?? "OK"
         var head = "HTTP/1.1 \(response.status) \(reason)\r\n"
         head += "Content-Type: \(response.contentType)\r\n"

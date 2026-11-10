@@ -69,6 +69,29 @@ curl -s -X POST http://127.0.0.1:47823/v1/correct \
   -H 'Content-Type: application/json' -d '{"text":"…"}'
 ```
 
+### Kommandozeile `eppur`
+
+`install.sh` legt das Tool nach `~/.local/bin/eppur`:
+
+```sh
+eppur status                     # Dienst und Modelle
+eppur list --limit 3             # letzte Diktate
+eppur search "Parakeet"          # Volltextsuche
+eppur show 1a2b3c4d              # ein Diktat (Kurz-ID aus list)
+eppur transcribe video.mp4 --correct
+eppur transcribe https://www.youtube.com/watch?v=…
+eppur export --format md --out transkripte.md
+eppur mcp                        # Befehl für Claude Code ausgeben
+```
+
+### MCP für KI-Agenten
+
+```sh
+claude mcp add --transport http eppur http://127.0.0.1:47823/mcp
+```
+
+Werkzeuge: `get_latest_transcript`, `list_transcripts`, `search_transcripts`, `get_transcript`, `transcribe_file`, `transcribe_url`, `correct_text`. CLI und MCP lassen sich unter Einstellungen → Integrationen abschalten; es gibt keinen Zugriffsschlüssel (nur lokal erreichbar).
+
 Wörterbuch: `~/Library/Application Support/Eppur/vocabulary.txt` (eine Zeile pro Begriff) oder in den Einstellungen.
 
 ## Entwicklung
