@@ -7,6 +7,7 @@
 
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Menü
 
@@ -63,35 +64,76 @@ struct MenuView: View {
 struct HistoryView: View {
     let history: HistoryStore
     let settings: AppSettings
+    let files: FileTranscriber
     @State private var search = ""
     @State private var copiedID: UUID?
+    @State private var dropTargeted = false
+    @State private var importing = false
 
     private var filtered: [TranscriptEntry] {
         guard !search.isEmpty else { return history.entries }
-        return history.entries.filter { $0.text.localizedCaseInsensitiveContains(search) }
+        return history.entries.filter {
+            $0.text.localizedCaseInsensitiveContains(search)
+                || ($0.sourceFile?.localizedCaseInsensitiveContains(search) ?? false)
+        }
     }
 
     var body: some View {
-        Group {
-            if history.entries.isEmpty {
-                ContentUnavailableView(
-                    "Noch keine Transkripte",
-                    systemImage: "waveform",
-                    description: Text("Halte die Fn-Taste und sprich. Klick auf ein Fenster oder zieh einen Bereich für Screenshots.")
-                )
-            } else {
-                List(filtered) { entry in
-                    EntryRow(entry: entry, copied: copiedID == entry.id) {
-                        copy(entry)
-                    } onDelete: {
-                        history.delete(entry)
-                    }
-                }
-                .listStyle(.inset)
+        VStack(spacing: 0) {
+            if !files.jobs.isEmpty || files.message != nil {
+                FileJobsBanner(files: files)
+                Divider()
             }
+            Group {
+                if history.entries.isEmpty {
+                    ContentUnavailableView(
+                        "Noch keine Transkripte",
+                        systemImage: "waveform",
+                        description: Text("Halte die Fn-Taste und sprich. Oder zieh Audiodateien hierher – sie werden nur transkribiert, nicht korrigiert.")
+                    )
+                } else {
+                    List(filtered) { entry in
+                        EntryRow(entry: entry, copied: copiedID == entry.id) {
+                            copy(entry)
+                        } onDelete: {
+                            history.delete(entry)
+                        }
+                    }
+                    .listStyle(.inset)
+                }
+            }
+            .frame(maxHeight: .infinity)
+        }
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 3, dash: [8, 6]))
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay {
+                        Label("Audiodateien ablegen – nur Transkription", systemImage: "waveform.badge.plus")
+                            .font(.title3.weight(.medium))
+                            .padding(12)
+                            .background(.regularMaterial, in: Capsule())
+                    }
+                    .padding(8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            files.enqueue(urls)
+            return urls.contains(where: FileTranscriber.isAudio)
+        } isTargeted: { dropTargeted = $0 }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result { files.enqueue(urls) }
         }
         .searchable(text: $search, prompt: "Transkripte durchsuchen")
         .toolbar {
+            Button {
+                importing = true
+            } label: {
+                Label("Audiodatei transkribieren …", systemImage: "waveform.badge.plus")
+            }
+            .help("Audiodatei transkribieren (ohne Korrektur) – oder einfach ins Fenster ziehen")
             Button {
                 NSWorkspace.shared.open(Storage.baseDirectory)
             } label: {
@@ -109,19 +151,62 @@ struct HistoryView: View {
     }
 }
 
+private struct FileJobsBanner: View {
+    let files: FileTranscriber
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let current = files.jobs.first {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Transkribiere \(current.name) …")
+                    if files.jobs.count > 1 {
+                        Text("· \(files.jobs.count - 1) in Warteschlange").foregroundStyle(.secondary)
+                    }
+                }
+            }
+            if let message = files.message {
+                HStack {
+                    Text(message).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Schließen", systemImage: "xmark") { files.message = nil }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                }
+            }
+        }
+        .font(.callout)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+}
+
 private struct EntryRow: View {
     let entry: TranscriptEntry
     let copied: Bool
     let onCopy: () -> Void
     let onDelete: () -> Void
 
+    private var durationText: String {
+        guard entry.duration >= 60 else { return String(format: "%.1f s", entry.duration) }
+        return Duration.seconds(entry.duration).formatted(.time(pattern: entry.duration >= 3600 ? .hourMinuteSecond : .minuteSecond))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
+                if let file = entry.sourceFile {
+                    Label(file, systemImage: "doc.richtext")
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(file)
+                }
                 Text(entry.date, format: .dateTime.day().month().year().hour().minute())
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("· \(entry.engine) · \(entry.duration, specifier: "%.1f") s")
+                Text("· \(entry.engine) · \(durationText)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 Spacer()

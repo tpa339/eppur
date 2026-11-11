@@ -19,6 +19,8 @@ struct TranscriptEntry: Codable, Identifiable, Hashable {
     var engine: String
     var duration: TimeInterval
     var error: String?
+    /// Dateiname, wenn der Eintrag aus einer Audiodatei stammt (nicht aus einem Diktat).
+    var sourceFile: String? = nil
 }
 
 enum Storage {

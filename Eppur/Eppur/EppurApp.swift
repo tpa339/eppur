@@ -69,7 +69,8 @@ struct EppurApp: App {
         }
 
         Window("Transkripte", id: "history") {
-            HistoryView(history: delegate.controller.history, settings: delegate.controller.settings)
+            HistoryView(history: delegate.controller.history, settings: delegate.controller.settings,
+                        files: delegate.controller.files)
         }
         .defaultLaunchBehavior(.suppressed)
         .defaultSize(width: 720, height: 560)

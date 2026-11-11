@@ -25,8 +25,9 @@ final class AppController {
     private(set) var levels: [CGFloat] = Array(repeating: 0, count: AppController.levelCount)
     private(set) var captureCount = 0
 
-    let settings = AppSettings()
-    let history = HistoryStore()
+    let settings: AppSettings
+    let history: HistoryStore
+    let files: FileTranscriber
 
     @ObservationIgnored private let fnMonitor = FnKeyMonitor()
     @ObservationIgnored private let recorder = AudioRecorder()
@@ -43,6 +44,14 @@ final class AppController {
 
     /// Kürzere Aufnahmen ohne Screenshot gelten als versehentlicher Fn-Druck.
     private let minimumDuration: TimeInterval = 0.35
+
+    init() {
+        let settings = AppSettings()
+        let history = HistoryStore()
+        self.settings = settings
+        self.history = history
+        files = FileTranscriber(history: history, settings: settings)
+    }
 
     func start() {
         Diagnostics.logStartup()

@@ -1,16 +1,16 @@
 # Status · move_AI
 Zustand: aktiv
-Aktualisiert: 2026-11-10
+Aktualisiert: 2026-11-11
 
 ## Nächster Schritt
-`./install.sh` ausführen (Dienst mit MCP + CLI `eppur`), dann `claude mcp add --transport http eppur http://127.0.0.1:47823/mcp` und in Claude Code testen.
+`./install.sh` ausführen, Fenster „Transkripte“ (⌘T) öffnen und eine Audiodatei hineinziehen: Eintrag mit Dateiname, Text ohne Korrektur.
 
 ## Zuletzt
+- 2026-11-11: Audiodateien im Fenster „Transkripte“ per Drag & Drop oder Toolbar-Knopf transkribieren – nur Spracherkennung, keine LLM-Korrektur/kein Wörterbuch (auch wenn Nachkorrektur an). Kopie im Sitzungsordner, Eintrag im Verlauf mit Dateiname, Warteschlange für mehrere Dateien. Build ok; Dienstpfad mit m4a/wav/aiff geprüft (`corrected: false`). Drop in der laufenden App noch nicht geprüft.
 - 2026-11-10: Lokale CLI & MCP (ohne Schlüssel, Entscheidung Nutzer): MCP-Endpunkt `/mcp` (Streamable HTTP, 7 Werkzeuge), CLI `eppur` (list/search/show/transcribe/correct/export/mcp), Tab „Integrationen“ mit Schalter. Gegen Test-Dienst geprüft. Scrollen während Fn wird durchgereicht. Freigaben nach Zertifikatswechsel neu erteilt (AX/Screen/Mic = true).
 - 2026-11-10: Interne Namen auf Eppur umgestellt (Eppur.xcodeproj, EppurServer, eppur-server, Zertifikat „Eppur Local Signing“); Lizenz Apache-2.0 + NOTICE; neues flaches App-Icon (generiert, maskiert) und Template-Menüleisten-Symbol; privates GitHub-Repo `eppur`. Fixes: Dev-Build verdrängt installierte App nicht mehr, veraltete Dienste werden ersetzt, MLX-Generierungen serialisiert.
 - 2026-11-10: Sprache standardmäßig „Automatisch“ (Parakeet erkennt de/en selbst – mit synthetischer Sprache geprüft, identisch mit/ohne Vorgabe). Korrektur wahlweise lokal (Qwen) oder per OpenAI-kompatibler Chat-API (OpenAI, OpenRouter, Ollama …), Wörterbuch + Umformulierungsschutz gelten für beide; auch für die API-Spracherkennung nutzbar.
 - 2026-11-10: Endgültige Bundle-ID `app.eppur.Eppur` (Debug: `app.eppur.Eppur.dev` „Eppur Dev“); Datenordner `Application Support/Eppur` mit Übernahme aus `MoveAI`; Einrichtungsfenster statt Systemdialogen beim Start; Start beim Anmelden (SMAppService); `install.sh` für Zertifikat + Dienst + App nach /Applications; README. Git-Repo angelegt.
-- 2026-11-10: App heißt jetzt **Eppur** (vorher Notchly; Produktname + Icon `MoveAI/design/eppur-icon-1024.png`); Einstellungen als Tabs (Allgemein, Transkription, Wörterbuch, Screenshots, Klänge); Screenshot per Klick und per Ziehen getrennt schaltbar; eigene synthetische Klänge (Sanft/Tropfen/Glocke) mit Probehören; nur noch eine App-Instanz (ältere wird beendet) und ein Wiederholversuch bei Dienst-Verbindungsfehler (Ursache „Network Error“: zwei parallele Instanzen).
 
 ## To-dos
 - [x] Metal Toolchain installieren
