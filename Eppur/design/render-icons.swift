@@ -1,37 +1,16 @@
 import AppKit
 
-// Gemeinsame Geometrie für App-Icon und Menüleisten-Symbol (Einheit: 0…1 der Fläche).
-struct OrbitGeometry {
-    static let tilt: CGFloat = 0.26           // Neigung der Bahn (rad), rechts höher wie im Logo
-    static let radiusX: CGFloat = 0.37, radiusY: CGFloat = 0.20
-    static let planetAngle: CGFloat = 0.85    // Position des Planeten auf der Bahn (rad)
+// App-Icon und Menüleisten-Symbol: bewegtes „e“ (Spuren in Cyan/Violett) mit Mauszeiger.
+// „Eppur si muove“ – das „e“ bewegt sich; der Zeiger steht für Screenshots per Klick.
+//
+// Aufruf (aus dem Repo-Wurzelordner):
+//   swift Eppur/design/render-icons.swift Eppur
+// schreibt Eppur/design/eppur-icon-flat-1024.png, alle Größen in AppIcon.appiconset
+// und menubar.png/@2x in MenuBarIcon.imageset.
 
-    /// Winkel für n Balken, gleichmäßig nach Bogenlänge verteilt (keine Häufung an den Enden).
-    static func evenAngles(_ n: Int) -> [CGFloat] {
-        let steps = 2000
-        var lengths: [CGFloat] = [0]
-        var prev = CGPoint(x: radiusX, y: 0)
-        for k in 1...steps {
-            let t = CGFloat(k) / CGFloat(steps) * 2 * .pi
-            let p = CGPoint(x: cos(t) * radiusX, y: sin(t) * radiusY)
-            lengths.append(lengths.last! + hypot(p.x - prev.x, p.y - prev.y)); prev = p
-        }
-        let total = lengths.last!
-        return (0..<n).map { i in
-            let target = CGFloat(i) / CGFloat(n) * total
-            let k = lengths.firstIndex { $0 >= target } ?? 0
-            return CGFloat(k) / CGFloat(steps) * 2 * .pi
-        }
-    }
-    static func point(_ t: CGFloat, center: CGPoint, scale: CGFloat) -> CGPoint {
-        let x = cos(t) * radiusX * scale, y = sin(t) * radiusY * scale
-        return CGPoint(x: center.x + x * cos(tilt) - y * sin(tilt), y: center.y + x * sin(tilt) + y * cos(tilt))
-    }
-    static func barHeight(_ i: Int) -> CGFloat {           // Waveform: ruhig variierend
-        let pattern: [CGFloat] = [0.35, 0.6, 1.0, 0.75, 0.45, 0.8, 0.55]
-        return pattern[i % pattern.count]
-    }
-}
+let rgb = { (r: Int, g: Int, b: Int) in NSColor(srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1) }
+let navy = rgb(28, 22, 82), cream = rgb(255, 244, 222)
+let cyan = rgb(45, 212, 238), violet = rgb(130, 90, 255)
 
 func render(size: Int, draw: (CGContext, CGFloat) -> Void) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8, samplesPerPixel: 4,
@@ -42,58 +21,86 @@ func render(size: Int, draw: (CGContext, CGFloat) -> Void) -> NSBitmapImageRep {
     NSGraphicsContext.restoreGraphicsState()
     return rep
 }
+func write(_ rep: NSBitmapImageRep, _ path: String) {
+    try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+}
 
-func drawOrbit(_ ctx: CGContext, in rect: CGRect, barCount n: Int, colors: [NSColor]?, barWidthFactor: CGFloat, heightFactor: CGFloat, sunRadius: CGFloat, planetRadius: CGFloat, sunColor: NSColor, planetColor: NSColor) {
-    let s = rect.width, c = CGPoint(x: rect.midX, y: rect.midY)
-    // Sonne
-    ctx.setFillColor(sunColor.cgColor)
-    ctx.fillEllipse(in: CGRect(x: c.x - sunRadius * s, y: c.y - sunRadius * s, width: 2 * sunRadius * s, height: 2 * sunRadius * s))
-    // Balken auf der Bahn, Lücke um den Planeten
-    let barW = barWidthFactor * s
-    for (i, t) in OrbitGeometry.evenAngles(n).enumerated() {
-        var d = abs(t - OrbitGeometry.planetAngle); d = min(d, 2 * .pi - d)
-        if d < 0.32 { continue }
-        let p = OrbitGeometry.point(t, center: c, scale: s)
-        let h = (0.035 + 0.045 * OrbitGeometry.barHeight(i)) * heightFactor * s
-        // Farbblöcke von links nach rechts (wie im Logo): Cyan → Violett → Magenta
-        let rel = (p.x - (c.x - OrbitGeometry.radiusX * s)) / (2 * OrbitGeometry.radiusX * s)
-        let color = colors.map { $0[max(0, min(Int(rel * CGFloat($0.count)), $0.count - 1))] } ?? planetColor
-        ctx.setFillColor(color.cgColor)
-        ctx.addPath(CGPath(roundedRect: CGRect(x: p.x - barW / 2, y: p.y - h / 2, width: barW, height: h), cornerWidth: barW / 2, cornerHeight: barW / 2, transform: nil))
-        ctx.fillPath()
+/// Glyphen-Pfad des „e“ (SF Rounded, Heavy), Mittelpunkt der Bounding-Box im Ursprung.
+func ePath(_ size: CGFloat) -> CGPath {
+    var font = NSFont.systemFont(ofSize: size, weight: .heavy)
+    if let d = font.fontDescriptor.withDesign(.rounded), let r = NSFont(descriptor: d, size: size) { font = r }
+    var ch: [UniChar] = Array("e".utf16), g = [CGGlyph](repeating: 0, count: 1)
+    CTFontGetGlyphsForCharacters(font as CTFont, &ch, &g, 1)
+    let p = CTFontCreatePathForGlyph(font as CTFont, g[0], nil)!
+    var t = CGAffineTransform(translationX: -p.boundingBox.midX, y: -p.boundingBox.midY)
+    return p.copy(using: &t)!
+}
+
+/// Klassischer Mauszeiger; Spitze bei tip, Höhe h, leicht gedreht.
+func cursorPath(tip: CGPoint, h: CGFloat, rot: CGFloat) -> CGPath {
+    let pts: [(CGFloat, CGFloat)] = [(0, 0), (0, 17), (4.1, 13.1), (6.9, 19.6), (9.9, 18.4), (7.2, 12.1), (12.6, 12.1)]
+    let u = h / 20
+    let p = CGMutablePath()
+    p.addLines(between: pts.map { CGPoint(x: $0.0 * u, y: -$0.1 * u) },
+               transform: CGAffineTransform(translationX: tip.x, y: tip.y).rotated(by: rot))
+    p.closeSubpath()
+    return p
+}
+
+/// Motiv in einem quadratischen Bereich der Kantenlänge s (Ursprung unten links).
+func drawMotif(_ ctx: CGContext, _ s: CGFloat) {
+    let e = ePath(s * 0.6), c = CGPoint(x: s * 0.46, y: s * 0.52), step = s * 0.06
+    for (i, col) in [cyan.withAlphaComponent(0.55), violet.withAlphaComponent(0.8), cream].enumerated() {
+        ctx.saveGState()
+        ctx.translateBy(x: c.x + CGFloat(i - 2) * step, y: c.y)
+        ctx.addPath(e); ctx.setFillColor(col.cgColor); ctx.fillPath()
+        ctx.restoreGState()
     }
-    // Planet
-    let pp = OrbitGeometry.point(OrbitGeometry.planetAngle, center: c, scale: s)
-    ctx.setFillColor(planetColor.cgColor)
-    ctx.fillEllipse(in: CGRect(x: pp.x - planetRadius * s, y: pp.y - planetRadius * s, width: 2 * planetRadius * s, height: 2 * planetRadius * s))
+    let cursor = cursorPath(tip: CGPoint(x: s * 0.63, y: s * 0.45), h: s * 0.27, rot: 0.12)
+    ctx.addPath(cursor); ctx.setLineJoin(.round); ctx.setLineWidth(s * 0.03); ctx.setStrokeColor(navy.cgColor); ctx.strokePath()
+    ctx.addPath(cursor); ctx.setFillColor(cream.cgColor); ctx.fillPath()
 }
 
-let outDir = CommandLine.arguments[1]
-let rgb = { (r: Int, g: Int, b: Int) in NSColor(srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1) }
-
-// 1) Flaches App-Icon (1024, macOS-Kachel)
-let icon = render(size: 1024) { ctx, _ in
-    let tile = CGRect(x: 100, y: 100, width: 824, height: 824)
-    let path = CGPath(roundedRect: tile, cornerWidth: 185, cornerHeight: 185, transform: nil)
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -10), blur: 24, color: NSColor.black.withAlphaComponent(0.3).cgColor)
-    ctx.addPath(path); ctx.setFillColor(rgb(28, 22, 82).cgColor); ctx.fillPath()
-    ctx.restoreGState()
-    ctx.saveGState(); ctx.addPath(path); ctx.clip()
-    drawOrbit(ctx, in: tile, barCount: 30, colors: [rgb(46, 214, 240), rgb(124, 92, 255), rgb(236, 72, 200)],
-              barWidthFactor: 0.022, heightFactor: 1.0, sunRadius: 0.095, planetRadius: 0.034,
-              sunColor: rgb(255, 214, 140), planetColor: rgb(255, 244, 222))
-    ctx.restoreGState()
-}
-try! icon.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "\(outDir)/eppur-icon-flat-1024.png"))
-
-// 2) Menüleisten-Vorschau (schwarz auf transparent), 18 pt @1x/@2x und groß zum Anschauen
-for (name, px) in [("menubar-18", 18), ("menubar-36", 36), ("menubar-preview-256", 256)] {
-    let rep = render(size: px) { ctx, s in
-        drawOrbit(ctx, in: CGRect(x: 0, y: 0, width: s, height: s), barCount: 14, colors: nil,
-                  barWidthFactor: 0.06, heightFactor: 1.5, sunRadius: 0.13, planetRadius: 0.065,
-                  sunColor: .black, planetColor: .black)
+/// macOS-Kachel (824/1024 der Fläche, Rand für den Schatten) mit Motiv.
+func appIcon(size: Int) -> NSBitmapImageRep {
+    render(size: size) { ctx, s in
+        let k = s / 1024
+        let tile = CGRect(x: 100 * k, y: 100 * k, width: 824 * k, height: 824 * k)
+        let path = CGPath(roundedRect: tile, cornerWidth: 185 * k, cornerHeight: 185 * k, transform: nil)
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: -10 * k), blur: 24 * k, color: NSColor.black.withAlphaComponent(0.3).cgColor)
+        ctx.addPath(path); ctx.setFillColor(navy.cgColor); ctx.fillPath()
+        ctx.restoreGState()
+        ctx.addPath(path); ctx.clip()
+        drawMotif(ctx, s)
     }
-    try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: "\(outDir)/\(name).png"))
 }
+
+/// Template-Symbol für die Menüleiste: „e“ und Zeiger in Schwarz, Zeiger mit Freistellung.
+func menubar(size: Int) -> NSBitmapImageRep {
+    render(size: size) { ctx, s in
+        ctx.saveGState()
+        ctx.translateBy(x: s * 0.4, y: s * 0.56)
+        ctx.addPath(ePath(s * 1.0)); ctx.setFillColor(NSColor.black.cgColor); ctx.fillPath()
+        ctx.restoreGState()
+        let cursor = cursorPath(tip: CGPoint(x: s * 0.55, y: s * 0.5), h: s * 0.5, rot: 0.12)
+        ctx.saveGState(); ctx.setBlendMode(.clear)
+        ctx.addPath(cursor); ctx.setLineJoin(.round); ctx.setLineWidth(s * 0.12); ctx.strokePath()
+        ctx.restoreGState()
+        ctx.addPath(cursor); ctx.setFillColor(NSColor.black.cgColor); ctx.fillPath()
+    }
+}
+
+let root = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Eppur"
+let assets = "\(root)/Eppur/Assets.xcassets"
+
+write(appIcon(size: 1024), "\(root)/design/eppur-icon-flat-1024.png")
+for (pt, scales) in [(16, [1, 2]), (32, [1, 2]), (128, [1, 2]), (256, [1, 2]), (512, [1, 2])] {
+    for sc in scales {
+        write(appIcon(size: pt * sc), "\(assets)/AppIcon.appiconset/icon_\(pt)\(sc == 2 ? "@2x" : "").png")
+    }
+}
+write(menubar(size: 18), "\(assets)/MenuBarIcon.imageset/menubar.png")
+write(menubar(size: 36), "\(assets)/MenuBarIcon.imageset/menubar@2x.png")
+write(menubar(size: 256), "\(root)/design/eppur-menubar-preview.png")
 print("ok")

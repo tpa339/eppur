@@ -3,14 +3,14 @@ Zustand: aktiv
 Aktualisiert: 2026-11-11
 
 ## Nächster Schritt
-`./install.sh` ausführen, Fenster „Transkripte“ (⌘T) öffnen und eine Audiodatei hineinziehen: Eintrag mit Dateiname, Text ohne Korrektur.
+`./install.sh` ausführen und neues Icon in Dock/Finder und Menüleiste (hell/dunkel) ansehen; danach Audiodatei-Drop im Fenster „Transkripte“ (⌘T) prüfen.
 
 ## Zuletzt
+- 2026-11-11: Neues App-Icon D2 (bewegtes „e“ + Mauszeiger) und passendes Template-Menüleistensymbol; `Eppur/design/render-icons.swift` erzeugt alle Größen direkt in die Assets. Asset-Katalog mit actool geprüft; App-Build in der Claude-Sandbox nicht möglich (Macro-Server braucht sandbox-exec) – Build/Ansicht in der laufenden App offen.
 - 2026-11-11: Audiodateien im Fenster „Transkripte“ per Drag & Drop oder Toolbar-Knopf transkribieren – nur Spracherkennung, keine LLM-Korrektur/kein Wörterbuch (auch wenn Nachkorrektur an). Kopie im Sitzungsordner, Eintrag im Verlauf mit Dateiname, Warteschlange für mehrere Dateien. Build ok; Dienstpfad mit m4a/wav/aiff geprüft (`corrected: false`). Drop in der laufenden App noch nicht geprüft.
 - 2026-11-10: Lokale CLI & MCP (ohne Schlüssel, Entscheidung Nutzer): MCP-Endpunkt `/mcp` (Streamable HTTP, 7 Werkzeuge), CLI `eppur` (list/search/show/transcribe/correct/export/mcp), Tab „Integrationen“ mit Schalter. Gegen Test-Dienst geprüft. Scrollen während Fn wird durchgereicht. Freigaben nach Zertifikatswechsel neu erteilt (AX/Screen/Mic = true).
 - 2026-11-10: Interne Namen auf Eppur umgestellt (Eppur.xcodeproj, EppurServer, eppur-server, Zertifikat „Eppur Local Signing“); Lizenz Apache-2.0 + NOTICE; neues flaches App-Icon (generiert, maskiert) und Template-Menüleisten-Symbol; privates GitHub-Repo `eppur`. Fixes: Dev-Build verdrängt installierte App nicht mehr, veraltete Dienste werden ersetzt, MLX-Generierungen serialisiert.
 - 2026-11-10: Sprache standardmäßig „Automatisch“ (Parakeet erkennt de/en selbst – mit synthetischer Sprache geprüft, identisch mit/ohne Vorgabe). Korrektur wahlweise lokal (Qwen) oder per OpenAI-kompatibler Chat-API (OpenAI, OpenRouter, Ollama …), Wörterbuch + Umformulierungsschutz gelten für beide; auch für die API-Spracherkennung nutzbar.
-- 2026-11-10: Endgültige Bundle-ID `app.eppur.Eppur` (Debug: `app.eppur.Eppur.dev` „Eppur Dev“); Datenordner `Application Support/Eppur` mit Übernahme aus `MoveAI`; Einrichtungsfenster statt Systemdialogen beim Start; Start beim Anmelden (SMAppService); `install.sh` für Zertifikat + Dienst + App nach /Applications; README. Git-Repo angelegt.
 
 ## To-dos
 - [x] Metal Toolchain installieren
@@ -38,6 +38,8 @@ Aktualisiert: 2026-11-11
 - [x] Neues App-Icon und Menüleisten-Symbol
 
 ## Entscheidungen
+- [x] Neues App-Icon → D (bewegtes „e“) mit Mauszeiger, Wahl Nutzer
+- [x] Variante D → D2 (gerades „e“ mit Spuren, heller Zeiger daneben), Wahl Nutzer
 - [x] App-Name → Eppur (Galilei: „Eppur si muove“ – mit Grundannahmen brechen)
 - [x] Signatur → lokales Zertifikat (kein Apple-Account)
 - [x] Veröffentlichung → Open Source ohne Developer-Account (selbst bauen per `install.sh`)
