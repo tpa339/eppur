@@ -113,7 +113,7 @@ final class AppSettings {
     var soundStyle: SoundStyle {
         didSet { defaults.set(soundStyle.rawValue, forKey: "soundStyle") }
     }
-    /// Während der Aufnahme: Klick auf ein Fenster nimmt es auf.
+    /// Während der Aufnahme: Maustaste lang auf einem Fenster halten nimmt es auf (normale Klicks gehen an die App).
     var captureWindowOnClick: Bool {
         didSet { defaults.set(captureWindowOnClick, forKey: "captureWindowOnClick") }
     }

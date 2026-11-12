@@ -5,7 +5,7 @@
 Eppur is a macOS menu bar app for dictation and screenshots that runs **entirely on your Mac**:
 
 - **Hold Fn and speak.** A waveform appears at the notch; when you release the key, the text is pasted into the active app.
-- **Screenshots while you speak.** Click a window or drag a region. The images go to the clipboard together with the text (text and PNG side by side) and their file paths are appended to the text.
+- **Screenshots while you speak.** Clicking and scrolling keep working as usual, so you can switch windows while you talk; drag to capture a region, or press and hold on a window to capture it. The images go to the clipboard together with the text (text and PNG side by side) and their file paths are appended to the text.
 - **Speech recognition:** [Parakeet TDT 0.6B v3](https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml) via [FluidAudio](https://github.com/FluidInference/FluidAudio) (CoreML, Neural Engine). German and English are detected automatically.
 - **Correction:** Qwen 3.5 2B (4-bit, [MLX](https://github.com/ml-explore/mlx-swift-lm)) plus a vocabulary for names and technical terms. Rewrites are rejected; only spelling, casing, punctuation and vocabulary fixes are kept. Optionally use any OpenAI-compatible API (OpenAI, OpenRouter, Ollama, …) instead.
 - **Local API, CLI and MCP** for agents and scripts – including files and YouTube links.

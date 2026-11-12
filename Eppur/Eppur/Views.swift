@@ -346,7 +346,7 @@ private struct ScreenshotSettings: View {
         Form {
             Section {
                 Toggle(isOn: $settings.captureWindowOnClick) {
-                    Label("Klick nimmt das Fenster auf", systemImage: "macwindow")
+                    Label("Lang gedrückt halten nimmt das Fenster auf", systemImage: "macwindow")
                 }
                 Toggle(isOn: $settings.captureRegionOnDrag) {
                     Label("Ziehen nimmt einen Bereich auf", systemImage: "rectangle.dashed")
@@ -355,8 +355,8 @@ private struct ScreenshotSettings: View {
                 Text("Während du Fn hältst")
             } footer: {
                 SettingsHint(text: settings.captureWindowOnClick || settings.captureRegionOnDrag
-                    ? "Solange Fn gedrückt ist, legt sich eine unsichtbare Ebene über den Bildschirm. Screenshots werden mit dem Text eingefügt."
-                    : "Beide aus: Während des Sprechens gehen Klicks ganz normal an deine Apps.")
+                    ? "Klicken und Scrollen funktionieren weiter normal – so kannst du während des Sprechens Fenster wechseln. Erst Ziehen oder langes Halten der linken Maustaste löst einen Screenshot aus; er wird mit dem Text eingefügt."
+                    : "Beide aus: Während des Sprechens werden keine Screenshots gemacht.")
             }
             Section {
                 LabeledContent("Bildschirmaufnahme") {

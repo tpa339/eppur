@@ -2,9 +2,12 @@
 //  CaptureOverlay.swift
 //  Eppur
 //
-//  Solange Fn gehalten wird: transparente Ebene über allen Bildschirmen.
-//  Klick → Fenster unter dem Mauszeiger; Ziehen → markierter Bereich.
-//  Das Panel aktiviert die App nicht, der Fokus bleibt z. B. im Terminal.
+//  Solange Fn gehalten wird, bleiben Maus und Trackpad normal benutzbar:
+//  Klicken, Fenster wechseln und Scrollen gehen direkt an die Apps.
+//  Ein Event-Tap hält nur die linke Maustaste kurz zurück und entscheidet:
+//  Ziehen → markierter Bereich, lange gedrückt halten → Fenster unter dem Mauszeiger,
+//  sonst wird der Klick unverändert an die App nachgereicht.
+//  Die Ebene über den Bildschirmen zeichnet nur Markierungen und lässt alle Ereignisse durch.
 //
 
 import AppKit
@@ -12,28 +15,201 @@ import AppKit
 final class CaptureOverlayController {
     var onCapture: ((CaptureTarget) -> Void)?
     private var panels: [CapturePanel] = []
+    private let mouse = CaptureMouseTap()
+
+    init() {
+        mouse.onSelection = { [weak self] rect in self?.panels.forEach { $0.captureView.selection = rect } }
+        mouse.onHighlight = { [weak self] rect in self?.panels.forEach { $0.captureView.highlight = rect } }
+        mouse.onCapture = { [weak self] target in self?.onCapture?(target) }
+    }
 
     func show(windowClick: Bool, regionDrag: Bool) {
         hide()
+        guard mouse.start(windowHold: windowClick, regionDrag: regionDrag) else { return }
         for screen in NSScreen.screens {
             let panel = CapturePanel(screen: screen)
-            panel.captureView.allowsWindowClick = windowClick
-            panel.captureView.allowsRegionDrag = regionDrag
-            panel.captureView.onCapture = { [weak self] target in self?.onCapture?(target) }
             panel.orderFrontRegardless()
             panels.append(panel)
         }
-        NSCursor.crosshair.set()
     }
 
     func hide() {
+        mouse.stop()
         panels.forEach { $0.orderOut(nil) }
         panels.removeAll()
-        NSCursor.arrow.set()
     }
 
     func flash(_ cgRect: CGRect) {
         panels.forEach { $0.captureView.flash(cgRect) }
+    }
+}
+
+/// Fängt während der Aufnahme nur die linke Maustaste ab (siehe Dateikopf).
+/// Läuft auf dem Haupt-Runloop, der Callback kommt also auf dem Main-Thread.
+final class CaptureMouseTap {
+    var onSelection: ((CGRect?) -> Void)?
+    var onHighlight: ((CGRect?) -> Void)?
+    var onCapture: ((CaptureTarget) -> Void)?
+
+    private enum Gesture {
+        case idle
+        /// Taste gedrückt, noch unentschieden – der Klick ist zurückgehalten.
+        case pending(down: CGEvent, start: CGPoint)
+        /// Lange gehalten: Fenster unter dem Mauszeiger ist markiert.
+        case windowHold(down: CGEvent, start: CGPoint, id: CGWindowID, frame: CGRect)
+        case region(start: CGPoint)
+        /// Gehört der App (z. B. Ziehen, wenn Bereichsaufnahme aus ist).
+        case passthrough
+    }
+
+    /// Kennzeichnet selbst nachgereichte Ereignisse, damit der Tap sie durchlässt.
+    private static let replayMarker: Int64 = 0x4570_7075
+    private static let dragThreshold: CGFloat = 5
+    private static let holdDelay: TimeInterval = 0.5
+
+    private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
+    private var gesture = Gesture.idle
+    private var holdTimer: DispatchWorkItem?
+    private var windowHold = true
+    private var regionDrag = true
+
+    @discardableResult
+    func start(windowHold: Bool, regionDrag: Bool) -> Bool {
+        stop()
+        self.windowHold = windowHold
+        self.regionDrag = regionDrag
+        let mask = (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.leftMouseDragged.rawValue)
+            | (1 << CGEventType.leftMouseUp.rawValue)
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(mask),
+            callback: { _, type, event, userInfo in
+                guard let userInfo else { return Unmanaged.passUnretained(event) }
+                let owner = Unmanaged<CaptureMouseTap>.fromOpaque(userInfo).takeUnretainedValue()
+                let pass = MainActor.assumeIsolated { owner.handle(type, event) }
+                return pass ? Unmanaged.passUnretained(event) : nil
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            Diagnostics.log("Screenshot-Modus: Event-Tap nicht verfügbar (Bedienungshilfen?)")
+            return false
+        }
+        let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        self.tap = tap
+        self.source = source
+        return true
+    }
+
+    func stop() {
+        holdTimer?.cancel()
+        holdTimer = nil
+        if let tap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+        }
+        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
+        tap = nil
+        source = nil
+        gesture = .idle
+        onSelection?(nil)
+        onHighlight?(nil)
+    }
+
+    /// true → Ereignis unverändert durchlassen, false → verschlucken.
+    private func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return true
+        }
+        if event.getIntegerValueField(.eventSourceUserData) == Self.replayMarker { return true }
+        let point = event.location
+
+        switch type {
+        case .leftMouseDown:
+            guard case .idle = gesture, let copy = event.copy() else { return true }
+            gesture = .pending(down: copy, start: point)
+            if windowHold { scheduleHold() }
+            return false
+
+        case .leftMouseDragged:
+            switch gesture {
+            case .pending(let down, let start), .windowHold(let down, let start, _, _):
+                guard hypot(point.x - start.x, point.y - start.y) >= Self.dragThreshold else { return false }
+                holdTimer?.cancel()
+                onHighlight?(nil)
+                if regionDrag {
+                    gesture = .region(start: start)
+                    onSelection?(Self.rect(start, point))
+                } else {
+                    // Bereichsaufnahme aus: Drücken nachreichen, das Ziehen gehört der App.
+                    gesture = .passthrough
+                    replay(down)
+                    replay(event)
+                }
+                return false
+            case .region(let start):
+                onSelection?(Self.rect(start, point))
+                return false
+            case .passthrough, .idle:
+                return true
+            }
+
+        case .leftMouseUp:
+            let finished = gesture
+            gesture = .idle
+            holdTimer?.cancel()
+            switch finished {
+            case .pending(let down, _):
+                // Normaler Klick: an die App nachreichen (Fenster wechseln, Buttons …).
+                replay(down)
+                replay(event)
+                return false
+            case .windowHold(_, _, let id, let frame):
+                onHighlight?(nil)
+                onCapture?(.window(id, frame))
+                return false
+            case .region(let start):
+                onSelection?(nil)
+                let rect = Self.rect(start, point)
+                if rect.width >= Self.dragThreshold, rect.height >= Self.dragThreshold {
+                    onCapture?(.region(rect))
+                }
+                return false
+            case .passthrough, .idle:
+                return true
+            }
+
+        default:
+            return true
+        }
+    }
+
+    private func scheduleHold() {
+        holdTimer?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, case .pending(let down, let start) = self.gesture,
+                  let found = ScreenCapture.windowUnder(start) else { return }
+            self.gesture = .windowHold(down: down, start: start, id: found.id, frame: found.frame)
+            self.onHighlight?(found.frame)
+        }
+        holdTimer = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.holdDelay, execute: item)
+    }
+
+    private func replay(_ event: CGEvent) {
+        guard let copy = event.copy() else { return }
+        copy.setIntegerValueField(.eventSourceUserData, value: Self.replayMarker)
+        copy.post(tap: .cgSessionEventTap)
+    }
+
+    private static func rect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
+        CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 }
 
@@ -47,8 +223,8 @@ final class CapturePanel: NSPanel {
         backgroundColor = .clear
         hasShadow = false
         level = .screenSaver
-        ignoresMouseEvents = false
-        acceptsMouseMovedEvents = true
+        // Rein optisch: Klicks und Scrollen gehen an die Apps darunter.
+        ignoresMouseEvents = true
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         contentView = captureView
@@ -60,96 +236,14 @@ final class CapturePanel: NSPanel {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
+/// Zeichnet Bereichsauswahl, Fenstermarkierung und Aufnahme-Blitz (Eingaben in CG-Koordinaten).
 final class CaptureView: NSView {
-    var onCapture: ((CaptureTarget) -> Void)?
-    var allowsWindowClick = true
-    var allowsRegionDrag = true
-
-    private var hover: (id: CGWindowID, cgFrame: CGRect)?
-    private var dragStart: NSPoint?
-    private var dragCurrent: NSPoint?
-    private var flashRect: NSRect?
-    private var trackingArea: NSTrackingArea?
-
-    private let dragThreshold: CGFloat = 5
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingArea { removeTrackingArea(trackingArea) }
-        let area = NSTrackingArea(rect: bounds, options: [.mouseMoved, .activeAlways, .inVisibleRect, .cursorUpdate], owner: self)
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if let window { updateHover(atScreen: NSEvent.mouseLocation, in: window) }
-    }
-
-    override func cursorUpdate(with event: NSEvent) { NSCursor.crosshair.set() }
-
-    // MARK: Maus
-
-    /// Scrollen geht durch die Screenshot-Ebene hindurch an die App unter dem Mauszeiger –
-    /// so lässt sich beim Diktieren durch lange Seiten scrollen und mehrfach markieren.
-    override func scrollWheel(with event: NSEvent) {
-        guard let window, let cgEvent = event.cgEvent?.copy() else { return }
-        let cocoaPoint = window.convertPoint(toScreen: event.locationInWindow)
-        guard let pid = ScreenCapture.ownerPIDUnder(ScreenGeometry.cgPoint(fromCocoa: cocoaPoint)) else { return }
-        cgEvent.postToPid(pid)
-        // Fensterrahmen kann sich durch das Scrollen nicht ändern, Inhalt schon: Markierung neu zeichnen.
-        needsDisplay = true
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        NSCursor.crosshair.set()
-        guard let window else { return }
-        updateHover(atScreen: window.convertPoint(toScreen: event.locationInWindow), in: window)
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        dragStart = convert(event.locationInWindow, from: nil)
-        dragCurrent = dragStart
-        needsDisplay = true
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        dragCurrent = convert(event.locationInWindow, from: nil)
-        NSCursor.crosshair.set()
-        needsDisplay = true
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        defer {
-            dragStart = nil
-            dragCurrent = nil
-            needsDisplay = true
-        }
-        guard let window, let start = dragStart else { return }
-        let end = convert(event.locationInWindow, from: nil)
-
-        if hypot(end.x - start.x, end.y - start.y) < dragThreshold {
-            guard allowsWindowClick else { return }
-            updateHover(atScreen: window.convertPoint(toScreen: event.locationInWindow), in: window)
-            if let hover { onCapture?(.window(hover.id, hover.cgFrame)) }
-        } else {
-            guard allowsRegionDrag else { return }
-            let viewRect = Self.rect(start, end)
-            let screenRect = window.convertToScreen(convert(viewRect, to: nil))
-            onCapture?(.region(ScreenGeometry.cgRect(fromCocoa: screenRect)))
-        }
-    }
-
-    // MARK: Darstellung
+    var selection: CGRect? { didSet { needsDisplay = true } }
+    var highlight: CGRect? { didSet { needsDisplay = true } }
+    private var flashRect: CGRect?
 
     func flash(_ cgRect: CGRect) {
-        guard let window else { return }
-        let screenRect = ScreenGeometry.cocoaRect(fromCG: cgRect)
-        let local = convert(window.convertFromScreen(screenRect), from: nil)
-        guard local.intersects(bounds) else { return }
-        flashRect = local
+        flashRect = cgRect
         needsDisplay = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
             self?.flashRect = nil
@@ -158,15 +252,9 @@ final class CaptureView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        // Fast unsichtbar, aber > 0, damit Klicks nicht durchfallen.
-        NSColor(white: 0, alpha: 0.012).setFill()
-        bounds.fill()
-
-        if allowsRegionDrag, let start = dragStart, let current = dragCurrent, hypot(current.x - start.x, current.y - start.y) >= dragThreshold {
-            drawSelection(Self.rect(start, current))
-        } else if allowsWindowClick, let hover, let window {
-            let screenRect = ScreenGeometry.cocoaRect(fromCG: hover.cgFrame)
-            let local = convert(window.convertFromScreen(screenRect), from: nil)
+        if let selection, let local = local(selection), local.intersects(bounds) {
+            drawSelection(local)
+        } else if let highlight, let local = local(highlight), local.intersects(bounds) {
             NSColor.systemBlue.withAlphaComponent(0.18).setFill()
             local.fill(using: .sourceOver)
             let path = NSBezierPath(roundedRect: local.insetBy(dx: 1, dy: 1), xRadius: 10, yRadius: 10)
@@ -175,10 +263,17 @@ final class CaptureView: NSView {
             path.stroke()
         }
 
-        if let flashRect {
+        if let flashRect, let local = local(flashRect), local.intersects(bounds) {
             NSColor.white.withAlphaComponent(0.55).setFill()
-            flashRect.fill(using: .sourceOver)
+            local.fill(using: .sourceOver)
         }
+    }
+
+    /// CG-Rechteck (global, oben links) → Koordinaten dieser Ansicht.
+    private func local(_ cgRect: CGRect) -> NSRect? {
+        guard let window else { return nil }
+        let screenRect = ScreenGeometry.cocoaRect(fromCG: cgRect)
+        return convert(window.convertFromScreen(screenRect), from: nil)
     }
 
     private func drawSelection(_ rect: NSRect) {
@@ -204,17 +299,5 @@ final class CaptureView: NSView {
         NSColor.black.withAlphaComponent(0.7).setFill()
         NSBezierPath(roundedRect: background, xRadius: 4, yRadius: 4).fill()
         label.draw(at: origin, withAttributes: attributes)
-    }
-
-    private func updateHover(atScreen cocoaPoint: NSPoint, in window: NSWindow) {
-        let found = ScreenCapture.windowUnder(ScreenGeometry.cgPoint(fromCocoa: cocoaPoint))
-        if found?.id != hover?.id || found?.frame != hover?.cgFrame {
-            hover = found.map { ($0.id, $0.frame) }
-            needsDisplay = true
-        }
-    }
-
-    private static func rect(_ a: NSPoint, _ b: NSPoint) -> NSRect {
-        NSRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 }

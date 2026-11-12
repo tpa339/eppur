@@ -1,16 +1,16 @@
 # Status · move_AI
 Zustand: aktiv
-Aktualisiert: 2026-11-11
+Aktualisiert: 2026-11-12
 
 ## Nächster Schritt
-`./install.sh` ausführen und neues Icon in Dock/Finder und Menüleiste (hell/dunkel) ansehen; danach Audiodatei-Drop im Fenster „Transkripte“ (⌘T) prüfen.
+Neues Icon in Dock/Finder/Menüleiste ansehen und Audiodatei-Drop im Fenster „Transkripte“ (⌘T) prüfen.
 
 ## Zuletzt
+- 2026-11-12: Screenshot-Modus während Fn umgebaut: Ebene lässt alle Ereignisse durch (Scrollen/Klicken nativ), Event-Tap hält nur die linke Maustaste zurück – Klick wird an die App nachgereicht, Ziehen = Bereich, langes Halten = Fenster. Per install.sh gebaut, in der laufenden App vom Nutzer bestätigt (Screenshot entsteht).
 - 2026-11-11: Neues App-Icon D2 (bewegtes „e“ + Mauszeiger) und passendes Template-Menüleistensymbol; `Eppur/design/render-icons.swift` erzeugt alle Größen direkt in die Assets. Asset-Katalog mit actool geprüft; App-Build in der Claude-Sandbox nicht möglich (Macro-Server braucht sandbox-exec) – Build/Ansicht in der laufenden App offen.
 - 2026-11-11: Audiodateien im Fenster „Transkripte“ per Drag & Drop oder Toolbar-Knopf transkribieren – nur Spracherkennung, keine LLM-Korrektur/kein Wörterbuch (auch wenn Nachkorrektur an). Kopie im Sitzungsordner, Eintrag im Verlauf mit Dateiname, Warteschlange für mehrere Dateien. Build ok; Dienstpfad mit m4a/wav/aiff geprüft (`corrected: false`). Drop in der laufenden App noch nicht geprüft.
 - 2026-11-10: Lokale CLI & MCP (ohne Schlüssel, Entscheidung Nutzer): MCP-Endpunkt `/mcp` (Streamable HTTP, 7 Werkzeuge), CLI `eppur` (list/search/show/transcribe/correct/export/mcp), Tab „Integrationen“ mit Schalter. Gegen Test-Dienst geprüft. Scrollen während Fn wird durchgereicht. Freigaben nach Zertifikatswechsel neu erteilt (AX/Screen/Mic = true).
 - 2026-11-10: Interne Namen auf Eppur umgestellt (Eppur.xcodeproj, EppurServer, eppur-server, Zertifikat „Eppur Local Signing“); Lizenz Apache-2.0 + NOTICE; neues flaches App-Icon (generiert, maskiert) und Template-Menüleisten-Symbol; privates GitHub-Repo `eppur`. Fixes: Dev-Build verdrängt installierte App nicht mehr, veraltete Dienste werden ersetzt, MLX-Generierungen serialisiert.
-- 2026-11-10: Sprache standardmäßig „Automatisch“ (Parakeet erkennt de/en selbst – mit synthetischer Sprache geprüft, identisch mit/ohne Vorgabe). Korrektur wahlweise lokal (Qwen) oder per OpenAI-kompatibler Chat-API (OpenAI, OpenRouter, Ollama …), Wörterbuch + Umformulierungsschutz gelten für beide; auch für die API-Spracherkennung nutzbar.
 
 ## To-dos
 - [x] Metal Toolchain installieren
