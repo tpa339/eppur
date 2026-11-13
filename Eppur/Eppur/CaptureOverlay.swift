@@ -225,6 +225,7 @@ final class CapturePanel: NSPanel {
         level = .screenSaver
         // Rein optisch: Klicks und Scrollen gehen an die Apps darunter.
         ignoresMouseEvents = true
+        canHide = false
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         contentView = captureView

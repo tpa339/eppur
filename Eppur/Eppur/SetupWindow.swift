@@ -3,36 +3,13 @@
 //  Eppur
 //
 //  Einrichtung: zeigt alle Freigaben mit Live-Status und je einem Knopf.
-//  Erscheint beim Start nur, wenn etwas Notwendiges fehlt – statt
-//  überraschender Systemdialoge.
+//  Seite „Einrichtung“ im Hauptfenster; erscheint beim Start automatisch,
+//  wenn etwas Notwendiges fehlt – statt überraschender Systemdialoge.
 //
 
 import AppKit
 import ServiceManagement
 import SwiftUI
-
-final class SetupWindow {
-    static let shared = SetupWindow()
-    private var window: NSWindow?
-
-    func show() {
-        if window == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 420),
-                styleMask: [.titled, .closable, .fullSizeContentView],
-                backing: .buffered, defer: false
-            )
-            window.title = "Eppur einrichten"
-            window.titlebarAppearsTransparent = true
-            window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: SetupView { [weak self] in self?.window?.close() })
-            window.center()
-            self.window = window
-        }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
-    }
-}
 
 struct SetupView: View {
     var onDone: () -> Void

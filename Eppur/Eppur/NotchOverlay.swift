@@ -63,6 +63,8 @@ final class NotchOverlayController {
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.ignoresMouseEvents = true
+        // Bleibt sichtbar, auch wenn Eppur ausgeblendet ist (NSApp.hide nach Schließen des Hauptfensters).
+        panel.canHide = false
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.contentView = NSHostingView(rootView: NotchView(controller: controller, metrics: metrics))

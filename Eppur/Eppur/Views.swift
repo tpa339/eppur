@@ -2,7 +2,7 @@
 //  Views.swift
 //  Eppur
 //
-//  Menüleiste, Transkript-Verlauf und Einstellungen.
+//  Menüleiste sowie Bausteine für Transkripte und Einstellungen im Hauptfenster.
 //
 
 import AppKit
@@ -16,8 +16,13 @@ struct MenuView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Text("Fn halten: sprechen · Klick: Fenster · Ziehen: Bereich")
+        Text("Fn halten: sprechen · Ziehen: Bereich · ½ s halten: Fenster")
         Text(serviceStatus)
+
+        Divider()
+
+        Button("Eppur öffnen …") { WindowOpener.shared.showMain(.home) }
+            .keyboardShortcut("o")
 
         Divider()
 
@@ -28,23 +33,20 @@ struct MenuView: View {
 
         Divider()
 
-        Button("Transkripte …") {
-            NSApp.activate()
-            openWindow(id: "history")
-        }
-        .keyboardShortcut("t")
-
-        SettingsLink { Text("Einstellungen …") }
+        Button("Transkripte …") { WindowOpener.shared.showMain(.transcripts) }
+            .keyboardShortcut("t")
+        Button("Einstellungen …") { WindowOpener.shared.showMain(.settings) }
             .keyboardShortcut(",")
-
         Button(Permissions.requiredGranted ? "Einrichtung …" : "⚠︎ Einrichtung – Freigabe fehlt …") {
-            SetupWindow.shared.show()
+            WindowOpener.shared.showMain(.setup)
         }
 
         Divider()
 
         Button("Eppur beenden") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
+            // Zweiter Weg zur openWindow-Aktion, falls das Label nicht registriert hat.
+            .onAppear { WindowOpener.shared.register(openWindow) }
     }
 
     private var serviceStatus: String {
@@ -59,99 +61,9 @@ struct MenuView: View {
     }
 }
 
-// MARK: - Verlauf
+// MARK: - Verlauf (Bausteine für die Seite „Transkripte“ im Hauptfenster)
 
-struct HistoryView: View {
-    let history: HistoryStore
-    let settings: AppSettings
-    let files: FileTranscriber
-    @State private var search = ""
-    @State private var copiedID: UUID?
-    @State private var dropTargeted = false
-    @State private var importing = false
-
-    private var filtered: [TranscriptEntry] {
-        guard !search.isEmpty else { return history.entries }
-        return history.entries.filter {
-            $0.text.localizedCaseInsensitiveContains(search)
-                || ($0.sourceFile?.localizedCaseInsensitiveContains(search) ?? false)
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            if !files.jobs.isEmpty || files.message != nil {
-                FileJobsBanner(files: files)
-                Divider()
-            }
-            Group {
-                if history.entries.isEmpty {
-                    ContentUnavailableView(
-                        "Noch keine Transkripte",
-                        systemImage: "waveform",
-                        description: Text("Halte die Fn-Taste und sprich. Oder zieh Audiodateien hierher – sie werden nur transkribiert, nicht korrigiert.")
-                    )
-                } else {
-                    List(filtered) { entry in
-                        EntryRow(entry: entry, copied: copiedID == entry.id) {
-                            copy(entry)
-                        } onDelete: {
-                            history.delete(entry)
-                        }
-                    }
-                    .listStyle(.inset)
-                }
-            }
-            .frame(maxHeight: .infinity)
-        }
-        .overlay {
-            if dropTargeted {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 3, dash: [8, 6]))
-                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-                    .overlay {
-                        Label("Audiodateien ablegen – nur Transkription", systemImage: "waveform.badge.plus")
-                            .font(.title3.weight(.medium))
-                            .padding(12)
-                            .background(.regularMaterial, in: Capsule())
-                    }
-                    .padding(8)
-                    .allowsHitTesting(false)
-            }
-        }
-        .dropDestination(for: URL.self) { urls, _ in
-            files.enqueue(urls)
-            return urls.contains(where: FileTranscriber.isAudio)
-        } isTargeted: { dropTargeted = $0 }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
-            if case .success(let urls) = result { files.enqueue(urls) }
-        }
-        .searchable(text: $search, prompt: "Transkripte durchsuchen")
-        .toolbar {
-            Button {
-                importing = true
-            } label: {
-                Label("Audiodatei transkribieren …", systemImage: "waveform.badge.plus")
-            }
-            .help("Audiodatei transkribieren (ohne Korrektur) – oder einfach ins Fenster ziehen")
-            Button {
-                NSWorkspace.shared.open(Storage.baseDirectory)
-            } label: {
-                Label("Ordner öffnen", systemImage: "folder")
-            }
-        }
-        .frame(minWidth: 520, minHeight: 360)
-    }
-
-    private func copy(_ entry: TranscriptEntry) {
-        let images = entry.imagePaths.map { URL(fileURLWithPath: $0) }
-        let text = ClipboardWriter.compose(transcript: entry.text, images: images, appendPaths: settings.appendImagePaths)
-        ClipboardWriter.write(text: text, images: images, mode: settings.clipboardMode)
-        copiedID = entry.id
-    }
-}
-
-private struct FileJobsBanner: View {
+struct FileJobsBanner: View {
     let files: FileTranscriber
 
     var body: some View {
@@ -177,12 +89,12 @@ private struct FileJobsBanner: View {
         }
         .font(.callout)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 32)
         .padding(.vertical, 8)
     }
 }
 
-private struct EntryRow: View {
+struct EntryRow: View {
     let entry: TranscriptEntry
     let copied: Bool
     let onCopy: () -> Void
@@ -275,23 +187,6 @@ private struct Thumbnail: View {
 
 // MARK: - Einstellungen
 
-struct SettingsView: View {
-    @Bindable var settings: AppSettings
-
-    var body: some View {
-        TabView {
-            Tab("Allgemein", systemImage: "gearshape") { GeneralSettings(settings: settings) }
-            Tab("Transkription", systemImage: "waveform") { TranscriptionSettings(settings: settings) }
-            Tab("Wörterbuch", systemImage: "character.book.closed") { VocabularySettings() }
-            Tab("Screenshots", systemImage: "camera.viewfinder") { ScreenshotSettings(settings: settings) }
-            Tab("Klänge", systemImage: "speaker.wave.2") { SoundSettings(settings: settings) }
-            Tab("Integrationen", systemImage: "terminal") { IntegrationSettings() }
-        }
-        .frame(width: 520)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
 private struct SettingsHint: View {
     let text: String
     var body: some View {
@@ -299,27 +194,14 @@ private struct SettingsHint: View {
     }
 }
 
-private struct GeneralSettings: View {
+struct GeneralSettings: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
-        Form {
-            Section {
-                HStack(spacing: 14) {
-                    Image(nsImage: NSApp.applicationIconImage)
-                        .resizable()
-                        .frame(width: 56, height: 56)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Eppur").font(.title2.weight(.semibold))
-                        Text("Fn halten und sprechen. Loslassen fügt den Text ein.")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
+        Group {
             Section {
                 LaunchAtLoginToggle()
-                Button("Freigaben prüfen …") { SetupWindow.shared.show() }
+                Button("Freigaben prüfen …") { WindowOpener.shared.showMain(.setup) }
             } header: {
                 Text("Start & Freigaben")
             }
@@ -335,15 +217,14 @@ private struct GeneralSettings: View {
                 SettingsHint(text: "Der Text landet immer auch in der Zwischenablage. „Text + Bild parallel“: In Claude Code fügt Ctrl+V zusätzlich das erste Bild ein. Mit Bildpfaden kann ein Agent alle Screenshots selbst lesen.")
             }
         }
-        .formStyle(.grouped)
     }
 }
 
-private struct ScreenshotSettings: View {
+struct ScreenshotSettings: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
-        Form {
+        Group {
             Section {
                 Toggle(isOn: $settings.captureWindowOnClick) {
                     Label("Lang gedrückt halten nimmt das Fenster auf", systemImage: "macwindow")
@@ -352,7 +233,7 @@ private struct ScreenshotSettings: View {
                     Label("Ziehen nimmt einen Bereich auf", systemImage: "rectangle.dashed")
                 }
             } header: {
-                Text("Während du Fn hältst")
+                Text("Screenshots während du Fn hältst")
             } footer: {
                 SettingsHint(text: settings.captureWindowOnClick || settings.captureRegionOnDrag
                     ? "Klicken und Scrollen funktionieren weiter normal – so kannst du während des Sprechens Fenster wechseln. Erst Ziehen oder langes Halten der linken Maustaste löst einen Screenshot aus; er wird mit dem Text eingefügt."
@@ -371,15 +252,14 @@ private struct ScreenshotSettings: View {
                 }
             }
         }
-        .formStyle(.grouped)
     }
 }
 
-private struct SoundSettings: View {
+struct SoundSettings: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
-        Form {
+        Group {
             Section {
                 Toggle("Töne bei Start und Ende der Aufnahme", isOn: $settings.sounds)
                 if settings.sounds {
@@ -394,37 +274,39 @@ private struct SoundSettings: View {
                         }
                     }
                 }
+            } header: {
+                Text("Klänge")
             } footer: {
                 SettingsHint(text: "Ein aufsteigender Klang heißt: Aufnahme läuft. Ein absteigender: Aufnahme beendet.")
             }
         }
-        .formStyle(.grouped)
     }
 }
 
-private struct VocabularySettings: View {
+struct VocabularySettings: View {
     @State private var vocabulary = Vocabulary.load()
 
     var body: some View {
-        Form {
+        Group {
             Section {
                 TextEditor(text: $vocabulary)
                     .font(.system(.body, design: .monospaced))
                     .frame(height: 220)
                     .onChange(of: vocabulary) { _, newValue in Vocabulary.save(newValue) }
+            } header: {
+                Text("Wörterbuch")
             } footer: {
                 SettingsHint(text: "Eine Zeile pro Name oder Fachbegriff. Ähnlich klingende Erkennungen werden auf diese Schreibweise korrigiert, z. B. „Cloudcode“ → „Claude Code“.")
             }
         }
-        .formStyle(.grouped)
     }
 }
 
-private struct TranscriptionSettings: View {
+struct TranscriptionSettings: View {
     @Bindable var settings: AppSettings
 
     var body: some View {
-        Form {
+        Group {
             Section {
                 Picker("Engine", selection: $settings.engine) {
                     ForEach(EngineKind.allCases) { Text($0.title).tag($0) }
@@ -472,7 +354,6 @@ private struct TranscriptionSettings: View {
             }
 
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -505,14 +386,14 @@ private struct ServiceStatusRow: View {
 
 // MARK: - Integrationen (lokale CLI & MCP)
 
-private struct IntegrationSettings: View {
+struct IntegrationSettings: View {
     @State private var enabled = Integrations.isEnabled
     @State private var copied: String?
 
     private var mcpCommand: String { "claude mcp add --transport http eppur \(EppurService.baseURL.absoluteString)/mcp" }
 
     var body: some View {
-        Form {
+        Group {
             Section {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -527,6 +408,8 @@ private struct IntegrationSettings: View {
                     Circle().fill(statusColor).frame(width: 8, height: 8)
                     Text(statusText).foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("Integrationen")
             } footer: {
                 SettingsHint(text: "Ohne Zugriffsschlüssel: Jedes Programm auf diesem Mac kann die Schnittstelle nutzen. Von außen ist sie nicht erreichbar.")
             }
@@ -554,7 +437,6 @@ private struct IntegrationSettings: View {
                 }
             }
         }
-        .formStyle(.grouped)
     }
 
     private var statusColor: Color {

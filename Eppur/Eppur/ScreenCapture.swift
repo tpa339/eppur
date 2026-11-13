@@ -58,9 +58,11 @@ enum ScreenCapture {
                 ?? content.displays.first(where: { $0.frame.intersects(rect) }) else {
             throw CaptureError.displayNotFound
         }
-        // Eigene Overlays (Notch, Auswahlrahmen) nicht mit aufnehmen.
-        let ownApps = content.applications.filter { $0.processID == ProcessInfo.processInfo.processIdentifier }
-        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        // Eigene schwebende Ebenen (Notch, Auswahlrahmen) nicht mit aufnehmen –
+        // das normale Eppur-Fenster (Ebene 0) aber schon.
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let overlays = content.windows.filter { $0.owningApplication?.processID == ownPID && $0.windowLayer != 0 }
+        let filter = SCContentFilter(display: display, excludingWindows: overlays)
         let scale = CGFloat(filter.pointPixelScale)
 
         let clipped = rect.intersection(display.frame)
@@ -82,14 +84,13 @@ enum ScreenCapture {
         guard CGImageDestinationFinalize(destination) else { throw CaptureError.saveFailed }
     }
 
-    /// Oberstes normales Fenster (Ebene 0) unter einem Punkt, ohne eigene Fenster.
+    /// Oberstes normales Fenster (Ebene 0) unter einem Punkt.
     static func windowUnder(_ point: CGPoint) -> (id: CGWindowID, frame: CGRect)? {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
                 as? [[String: Any]] else { return nil }
-        let ownPID = ProcessInfo.processInfo.processIdentifier
+        // Nur Ebene 0: eigene Overlays liegen höher, das Eppur-Hauptfenster lässt sich so auch aufnehmen.
         for info in list {
             guard (info[kCGWindowLayer as String] as? Int) == 0,
-                  (info[kCGWindowOwnerPID as String] as? Int32) != ownPID,
                   let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
                   let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary),
                   let number = info[kCGWindowNumber as String] as? Int,
