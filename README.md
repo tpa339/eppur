@@ -18,11 +18,48 @@ Eppur questions a few of those: that good speech recognition needs the cloud, th
 
 ## Requirements
 
-- Mac with Apple silicon, macOS 27
-- Xcode 27 with the Metal Toolchain: `xcodebuild -downloadComponent MetalToolchain`
+- macOS 26 or later
+- **Apple silicon:** everything runs locally (Parakeet + Qwen).
+- **Intel Macs:** the local models are not available. Speech recognition runs through an OpenAI-compatible API instead – suggested: [Mistral](https://console.mistral.ai) with `voxtral-small-transcribe-3-0`; OpenRouter or any other compatible server works too. Correction, vocabulary, CLI and MCP need the local service and are Apple-silicon only.
+- Building from source: Xcode 27 with the Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`)
 - optional: [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for video URLs
 
-## Installation
+## Install with an AI agent (copy & paste)
+
+Paste this into Claude Code (or another coding agent with terminal access) on the Mac where Eppur should run:
+
+```text
+Install the macOS app Eppur from the GitHub repo tpa339/eppur for me.
+1. Check `uname -m` and `sw_vers -productVersion` (macOS 26 or later is required; stop and tell me if it is older).
+2. If the repo is private, make sure `gh auth status` works with access to tpa339/eppur; otherwise ask me to run `gh auth login`.
+3. Apple silicon (arm64) with Xcode 27 installed: clone the repo to ~/eppur and run `./install.sh`
+   (it builds the local service and the app; approve the keychain prompt with "Always Allow").
+   Apple silicon without Xcode, or Intel (x86_64): run
+   `gh release download --repo tpa339/eppur --pattern 'Eppur-*.zip' --dir "$TMPDIR/eppur-dl" --clobber`,
+   unzip it with `ditto -x -k`, move Eppur.app to /Applications (replace an older copy),
+   run `xattr -dr com.apple.quarantine /Applications/Eppur.app` and start it with `open /Applications/Eppur.app`.
+4. Tell me what is left for me to do by hand: grant Microphone, Accessibility and (optional) Screen Recording
+   in the setup window; set System Settings → Keyboard → "Press 🌐 key to" → "Do Nothing";
+   without the local service (Intel or prebuilt app): open Eppur → Settings → Speech recognition,
+   choose provider "Mistral" (model voxtral-small-transcribe-3-0) or "OpenRouter" and paste my API key.
+Do not handle or print my API keys yourself.
+```
+
+## Download (prebuilt app)
+
+1. Download `Eppur-<version>.zip` from the [latest release](https://github.com/tpa339/eppur/releases/latest), unzip it and move `Eppur.app` to `/Applications`.
+2. The app is signed with a self-made certificate, not notarized by Apple. On first launch macOS blocks it: open System Settings → Privacy & Security and click **Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Eppur.app`).
+3. On an Intel Mac: Settings → Speech recognition → provider **Mistral**, paste your API key.
+
+The prebuilt app contains no local models. On Apple silicon, run `./install.sh` from source to get the local service, or use an API as on Intel.
+
+### Updates
+
+Eppur checks GitHub releases every few hours (Settings → Updates, can be turned off). An update is installed only if it carries the same signature as the running app; Eppur then restarts. Permissions are kept.
+
+Maintainers publish a release with `Eppur/scripts/release.sh` (universal build, ZIP, GitHub release for the current `MARKETING_VERSION`).
+
+## Installation from source
 
 ```sh
 git clone <repo-url> eppur && cd eppur

@@ -69,7 +69,8 @@ final class AppController {
         }
 
         // Keine Systemdialoge beim Start – fehlende Freigaben zeigt das Einrichtungsfenster.
-        if settings.engine == .local { EppurService.shared.startMonitoring() }
+        if Platform.hasLocalService, settings.engine == .local { EppurService.shared.startMonitoring() }
+        Updater.shared.startAutomaticChecks()
     }
 
     // MARK: - Aufnahme

@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import UniformTypeIdentifiers
 
 struct TranscriptionResult {
     var text: String
@@ -59,7 +60,9 @@ private func postAudio(
     for (name, value) in fields {
         body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
     }
-    body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\nContent-Type: audio/wav\r\n\r\n")
+    let mime = UTType(filenameExtension: fileURL.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+    let filename = fileURL.lastPathComponent.replacingOccurrences(of: "\"", with: "_")
+    body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\nContent-Type: \(mime)\r\n\r\n")
     body.append(try Data(contentsOf: fileURL))
     body.append("\r\n--\(boundary)--\r\n")
 
@@ -130,7 +133,8 @@ struct OpenAICompatibleEngine: TranscriptionEngine {
         guard let base = URL(string: trimmedBase), base.scheme != nil else {
             throw TranscriptionError.badURL(baseURL)
         }
-        var fields = ["model": model, "response_format": "json"]
+        // Kein response_format: JSON ist Standard (OpenAI, OpenRouter), Mistral kennt das Feld nicht.
+        var fields = ["model": model]
         // „auto“: keine Sprache vorgeben, die API erkennt sie selbst.
         if language != "auto" {
             fields["language"] = String(language.prefix(while: { $0 != "-" && $0 != "_" }))

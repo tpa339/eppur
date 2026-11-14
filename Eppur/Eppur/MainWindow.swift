@@ -293,12 +293,19 @@ private struct RecipeView: View {
         SentenceLayout(spacing: 5, lineSpacing: 9) {
             words("Wenn ich Fn loslasse, hört")
             Token(settings.engine == .local ? "Parakeet" : "meine API", status: engineStatus) {
-                settings.engine = settings.engine == .local ? .api : .local
+                if Platform.hasLocalService {
+                    settings.engine = settings.engine == .local ? .api : .local
+                } else {
+                    WindowOpener.shared.showMain(.settings)
+                }
             }
             Token(languagePhrase, action: cycleLanguage)
-            words("–")
-            Token(correctionPhrase, status: correctionStatus, action: cycleCorrection)
-            words("– und Eppur")
+            if Platform.hasLocalService {
+                words("–")
+                Token(correctionPhrase, status: correctionStatus, action: cycleCorrection)
+                words("–")
+            }
+            words("und Eppur")
             Token(settings.autoPaste ? "fügt den Text direkt ein." : "legt den Text in die Zwischenablage.") {
                 settings.autoPaste.toggle()
             }
@@ -652,11 +659,12 @@ private struct SettingsPage: View {
     var body: some View {
         Form {
             TranscriptionSettings(settings: settings)
-            VocabularySettings()
+            if Platform.hasLocalService { VocabularySettings() }
             GeneralSettings(settings: settings)
             ScreenshotSettings(settings: settings)
             SoundSettings(settings: settings)
             IntegrationSettings()
+            UpdateSettings()
         }
         .formStyle(.grouped)
     }

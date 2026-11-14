@@ -12,8 +12,13 @@ APP_DEST="/Applications/Eppur.app"
 echo "▸ 1/4 Signaturzertifikat prüfen"
 "$ROOT/Eppur/scripts/create-signing-cert.sh"
 
-echo "▸ 2/4 Dienst bauen und installieren (Parakeet + Qwen)"
-"$ROOT/EppurServer/install.sh"
+if [[ "$(sysctl -n hw.optional.arm64 2>/dev/null)" == "1" ]]; then
+  echo "▸ 2/4 Dienst bauen und installieren (Parakeet + Qwen)"
+  "$ROOT/EppurServer/install.sh"
+else
+  # MLX (Qwen) und der lokale Dienst laufen nur auf Apple Silicon.
+  echo "▸ 2/4 Intel-Mac: lokaler Dienst übersprungen – Spracherkennung läuft über eine API"
+fi
 
 echo "▸ 3/4 App bauen (Release)"
 DERIVED="$ROOT/Eppur/.build-xcode"

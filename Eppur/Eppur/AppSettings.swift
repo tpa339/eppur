@@ -9,6 +9,49 @@ import Foundation
 import Observation
 import Security
 
+/// Der lokale Dienst (Parakeet + Qwen über MLX) läuft nur auf Apple Silicon.
+/// Auf Intel-Macs transkribiert Eppur über eine API.
+enum Platform {
+    #if arch(arm64)
+    static let hasLocalService = true
+    #else
+    static let hasLocalService = false
+    #endif
+}
+
+/// Vorschläge für die Spracherkennungs-API (OpenAI-kompatibel: POST {Basis-URL}/audio/transcriptions).
+enum APIPreset: String, CaseIterable, Identifiable {
+    case mistral
+    case openRouter
+    case custom
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .mistral: "Mistral"
+        case .openRouter: "OpenRouter"
+        case .custom: "Eigene"
+        }
+    }
+    var baseURL: String {
+        switch self {
+        case .mistral: "https://api.mistral.ai/v1"
+        case .openRouter: "https://openrouter.ai/api/v1"
+        case .custom: ""
+        }
+    }
+    var model: String {
+        switch self {
+        case .mistral: "voxtral-small-transcribe-3-0"
+        case .openRouter: "openai/whisper-large-v3"
+        case .custom: ""
+        }
+    }
+    static func matching(baseURL: String) -> APIPreset {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return [.mistral, .openRouter].first { trimmed.hasPrefix($0.baseURL) } ?? .custom
+    }
+}
+
 enum EngineKind: String, CaseIterable, Identifiable {
     case local
     case api
@@ -97,6 +140,17 @@ final class AppSettings {
         didSet { Keychain.set(correctionAPIKey, account: "correctionApiKey") }
     }
 
+    /// Anbieter wechseln: Jeder Anbieter behält seinen eigenen Schlüssel, damit z. B. der
+    /// Mistral-Schlüssel nie an OpenRouter geht.
+    func switchAPIPreset(to preset: APIPreset) {
+        let current = APIPreset.matching(baseURL: apiBaseURL)
+        guard preset != current else { return }
+        Keychain.set(apiKey, account: "apiKey.\(current.rawValue)")
+        apiBaseURL = preset.baseURL
+        apiModel = preset.model
+        apiKey = Keychain.get(account: "apiKey.\(preset.rawValue)") ?? ""
+    }
+
     /// nil = lokale Korrektur mit Qwen.
     var correctionRemote: CorrectionRemote? {
         guard correctionProvider == .api, !correctionBaseURL.isEmpty, !correctionModel.isEmpty else { return nil }
@@ -123,8 +177,13 @@ final class AppSettings {
     }
 
     init() {
-        engine = EngineKind(rawValue: defaults.string(forKey: "engine") ?? "") ?? .local
-        correction = defaults.object(forKey: "correction") as? Bool ?? true
+        // Ohne lokalen Dienst (Intel, oder fertige App ohne install.sh) ist die API der Standard.
+        let serviceAvailable = Platform.hasLocalService
+            && FileManager.default.isExecutableFile(atPath: EppurService.executableURL.path)
+        engine = Platform.hasLocalService
+            ? EngineKind(rawValue: defaults.string(forKey: "engine") ?? "") ?? (serviceAvailable ? .local : .api)
+            : .api
+        correction = defaults.object(forKey: "correction") as? Bool ?? serviceAvailable
         correctionProvider = CorrectionProvider(rawValue: defaults.string(forKey: "correctionProvider") ?? "") ?? .local
         correctionBaseURL = defaults.string(forKey: "correctionBaseURL") ?? "https://openrouter.ai/api/v1"
         correctionModel = defaults.string(forKey: "correctionModel") ?? ""
@@ -140,8 +199,8 @@ final class AppSettings {
             if defaults.string(forKey: "language") == "de-DE" { defaults.removeObject(forKey: "language") }
         }
         language = defaults.string(forKey: "language") ?? "auto"
-        apiBaseURL = defaults.string(forKey: "apiBaseURL") ?? "http://localhost:8000/v1"
-        apiModel = defaults.string(forKey: "apiModel") ?? "whisper-1"
+        apiBaseURL = defaults.string(forKey: "apiBaseURL") ?? APIPreset.mistral.baseURL
+        apiModel = defaults.string(forKey: "apiModel") ?? APIPreset.mistral.model
         appendImagePaths = defaults.object(forKey: "appendImagePaths") as? Bool ?? true
         clipboardMode = ClipboardMode(rawValue: defaults.string(forKey: "clipboardMode") ?? "") ?? .textAndImage
         Keychain.migrateLegacy(account: "apiKey")
@@ -166,8 +225,9 @@ final class AppSettings {
         case .local:
             EppurServiceEngine(correct: correction, remote: correctionRemote)
         case .api:
+            // Die Korrektur läuft im lokalen Dienst – ohne ihn (Intel) nur Spracherkennung.
             OpenAICompatibleEngine(baseURL: apiBaseURL, model: apiModel, apiKey: apiKey,
-                                   correct: correction, remote: correctionRemote)
+                                   correct: correction && Platform.hasLocalService, remote: correctionRemote)
         }
     }
 }

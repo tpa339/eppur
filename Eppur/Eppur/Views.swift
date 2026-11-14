@@ -26,8 +26,10 @@ struct MenuView: View {
 
         Divider()
 
-        Toggle(controller.settings.correctionProvider == .api ? "Korrektur (API)" : "Korrektur (Qwen lokal)",
-               isOn: Bindable(controller.settings).correction)
+        if Platform.hasLocalService {
+            Toggle(controller.settings.correctionProvider == .api ? "Korrektur (API)" : "Korrektur (Qwen lokal)",
+                   isOn: Bindable(controller.settings).correction)
+        }
         Toggle("Automatisch einfügen", isOn: Bindable(controller.settings).autoPaste)
         Toggle("Töne bei Start/Ende", isOn: Bindable(controller.settings).sounds)
 
@@ -37,6 +39,11 @@ struct MenuView: View {
             .keyboardShortcut("t")
         Button("Einstellungen …") { WindowOpener.shared.showMain(.settings) }
             .keyboardShortcut(",")
+        if let version = Updater.shared.availableVersion {
+            Button("Update auf Version \(version) installieren") {
+                Task { await Updater.shared.install() }
+            }
+        }
         Button(Permissions.requiredGranted ? "Einrichtung …" : "⚠︎ Einrichtung – Freigabe fehlt …") {
             WindowOpener.shared.showMain(.setup)
         }
@@ -308,8 +315,10 @@ struct TranscriptionSettings: View {
     var body: some View {
         Group {
             Section {
-                Picker("Engine", selection: $settings.engine) {
-                    ForEach(EngineKind.allCases) { Text($0.title).tag($0) }
+                if Platform.hasLocalService {
+                    Picker("Engine", selection: $settings.engine) {
+                        ForEach(EngineKind.allCases) { Text($0.title).tag($0) }
+                    }
                 }
                 Picker("Sprache", selection: $settings.language) {
                     Text("Automatisch (Deutsch/Englisch)").tag("auto")
@@ -317,8 +326,14 @@ struct TranscriptionSettings: View {
                     Text("Englisch").tag("en-US")
                 }
                 if settings.engine == .api {
-                    TextField("Basis-URL", text: $settings.apiBaseURL, prompt: Text("https://api.openai.com/v1"))
-                    TextField("Modell", text: $settings.apiModel, prompt: Text("whisper-1"))
+                    Picker("Anbieter", selection: Binding(
+                        get: { APIPreset.matching(baseURL: settings.apiBaseURL) },
+                        set: { settings.switchAPIPreset(to: $0) })) {
+                        ForEach(APIPreset.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    TextField("Basis-URL", text: $settings.apiBaseURL, prompt: Text("https://api.mistral.ai/v1"))
+                    TextField("Modell", text: $settings.apiModel, prompt: Text(APIPreset.mistral.model))
                     SecureField("API-Schlüssel", text: $settings.apiKey)
                 }
             } header: {
@@ -326,9 +341,11 @@ struct TranscriptionSettings: View {
             } footer: {
                 SettingsHint(text: settings.engine == .local
                     ? "Parakeet läuft lokal im Eppur-Dienst und erkennt Deutsch und Englisch selbst – auch wenn du mitten im Diktat wechselst."
-                    : "Ruft POST {Basis-URL}/audio/transcriptions auf (OpenAI oder kompatible Server). Der Schlüssel liegt im Schlüsselbund.")
+                    : (Platform.hasLocalService ? "" : "Auf Intel-Macs läuft die Spracherkennung über eine API. ")
+                      + "Vorschlag: Mistral (Voxtral Small Transcribe 3) – Schlüssel unter console.mistral.ai. OpenRouter und andere OpenAI-kompatible Server gehen ebenso; Basis-URL und Modell frei eintragbar. Ruft POST {Basis-URL}/audio/transcriptions auf; die Aufnahme verlässt dann deinen Mac. Der Schlüssel liegt im Schlüsselbund.")
             }
 
+            if Platform.hasLocalService {
             Section {
                 Toggle("Nachkorrektur", isOn: $settings.correction)
                 if settings.correction {
@@ -351,6 +368,7 @@ struct TranscriptionSettings: View {
 
             Section("Dienst") {
                 ServiceStatusRow()
+            }
             }
 
         }
@@ -384,6 +402,50 @@ private struct ServiceStatusRow: View {
     }
 }
 
+// MARK: - Updates
+
+struct UpdateSettings: View {
+    @Bindable private var updater = Updater.shared
+
+    var body: some View {
+        Section {
+            Toggle("Automatisch nach Updates suchen", isOn: $updater.automaticChecks)
+                .disabled(!Updater.isSupported)
+            HStack {
+                Text(statusText).foregroundStyle(.secondary)
+                Spacer()
+                switch updater.state {
+                case .available(let version, _):
+                    Button("Version \(version) installieren") { Task { await updater.install() } }
+                        .buttonStyle(.borderedProminent)
+                case .checking, .installing:
+                    ProgressView().controlSize(.small)
+                default:
+                    Button("Jetzt suchen") { Task { await updater.check() } }
+                        .disabled(!Updater.isSupported)
+                }
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            SettingsHint(text: "Lädt neue Versionen von GitHub (\(Updater.repository)). Installiert wird nur eine App mit derselben Signatur; Eppur startet danach neu. Mit install.sh selbst gebaute Apps aktualisierst du mit install.sh.")
+        }
+    }
+
+    private var statusText: String {
+        let current = "Version \(Updater.currentVersion)"
+        guard Updater.isSupported else { return current + " · Entwicklungs-Build" }
+        switch updater.state {
+        case .idle: return current
+        case .checking: return current + " · suche …"
+        case .upToDate: return current + " · aktuell"
+        case .available(let version, _): return current + " · \(version) verfügbar"
+        case .installing(let step): return step
+        case .failed(let message): return current + " · " + message
+        }
+    }
+}
+
 // MARK: - Integrationen (lokale CLI & MCP)
 
 struct IntegrationSettings: View {
@@ -394,6 +456,11 @@ struct IntegrationSettings: View {
 
     var body: some View {
         Group {
+            if !Platform.hasLocalService {
+                Section("Integrationen") {
+                    SettingsHint(text: "CLI und MCP laufen über den lokalen Eppur-Dienst und sind nur auf Macs mit Apple Silicon verfügbar.")
+                }
+            } else {
             Section {
                 Toggle(isOn: $enabled) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -435,6 +502,7 @@ struct IntegrationSettings: View {
                 LabeledContent("Ausprobieren") {
                     copyButton("eppur list --limit 3", label: "eppur list --limit 3")
                 }
+            }
             }
         }
     }

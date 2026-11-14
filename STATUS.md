@@ -1,16 +1,16 @@
 # Status · move_AI
 Zustand: aktiv
-Aktualisiert: 2026-11-13
+Aktualisiert: 2026-11-14
 
 ## Nächster Schritt
-DMG-Release entscheiden (unsigniert mit Anleitung vs. Developer ID + Notarisierung).
+Beta-Tester (Intel) als Collaborator auf tpa339/eppur einladen; er installiert v1.1 per Agent-Prompt aus der README und testet Mistral.
 
 ## Zuletzt
+- 2026-11-14: v1.1 für Intel: Build-Ziel macOS 26, Universal-App (arm64+x86_64); auf Intel kein lokaler Dienst, Spracherkennung per API mit Anbieter-Auswahl (Standard Mistral `voxtral-small-transcribe-3-0`, OpenRouter, eigene). Update-Funktion über GitHub Releases (Signaturprüfung gegen eigenes Zertifikat, Tausch + Neustart). `Eppur/scripts/release.sh` (Universal-ZIP + GitHub-Release). Intel-Teil unter Rosetta gestartet (kein Dienst gestartet), v1.1 in /Applications, Freigaben erhalten. Mistral-API mit echtem Schlüssel und Update-Ablauf Ende-zu-Ende noch ungetestet.
 - 2026-11-12: Hauptfenster „Eppur“ (MainWindow.swift): öffnet per Klick aufs App-Symbol; alles in einem Fenster (Seiten Jetzt/Transkripte/Einstellungen/Einrichtung, keine separaten Fenster mehr). Bühne „Höre zu“ mit Wellenform, Einstellungen als anklickbarer Satz inkl. Modelle mit Statuspunkt, letzte 3 Transkripte, Audio-Drop. Gestaltung danach beruhigt (Nutzerwunsch: keine Verläufe): native Fensterleiste mit Seitenumschalter, Systemfarben hell/dunkel, Akzent Indigo (AccentColor). Gebaut, vom Nutzer getestet und für gut befunden (2026-11-13), auf GitHub gepusht.
 - 2026-11-12: Screenshot-Modus während Fn umgebaut: Ebene lässt alle Ereignisse durch (Scrollen/Klicken nativ), Event-Tap hält nur die linke Maustaste zurück – Klick wird an die App nachgereicht, Ziehen = Bereich, langes Halten = Fenster. Per install.sh gebaut, in der laufenden App vom Nutzer bestätigt (Screenshot entsteht).
 - 2026-11-11: Neues App-Icon D2 (bewegtes „e“ + Mauszeiger) und passendes Template-Menüleistensymbol; `Eppur/design/render-icons.swift` erzeugt alle Größen direkt in die Assets. Asset-Katalog mit actool geprüft; App-Build in der Claude-Sandbox nicht möglich (Macro-Server braucht sandbox-exec) – Build/Ansicht in der laufenden App offen.
 - 2026-11-11: Audiodateien im Fenster „Transkripte“ per Drag & Drop oder Toolbar-Knopf transkribieren – nur Spracherkennung, keine LLM-Korrektur/kein Wörterbuch (auch wenn Nachkorrektur an). Kopie im Sitzungsordner, Eintrag im Verlauf mit Dateiname, Warteschlange für mehrere Dateien. Build ok; Dienstpfad mit m4a/wav/aiff geprüft (`corrected: false`). Drop in der laufenden App noch nicht geprüft.
-- 2026-11-10: Lokale CLI & MCP (ohne Schlüssel, Entscheidung Nutzer): MCP-Endpunkt `/mcp` (Streamable HTTP, 7 Werkzeuge), CLI `eppur` (list/search/show/transcribe/correct/export/mcp), Tab „Integrationen“ mit Schalter. Gegen Test-Dienst geprüft. Scrollen während Fn wird durchgereicht. Freigaben nach Zertifikatswechsel neu erteilt (AX/Screen/Mic = true).
 
 ## To-dos
 - [x] Metal Toolchain installieren
@@ -31,7 +31,9 @@ DMG-Release entscheiden (unsigniert mit Anleitung vs. Developer ID + Notarisieru
 - [x] Restliche interne Namen angleichen
 - [x] Name „Eppur“ geprüft: keine App/kein Repo gefunden (Markenregister nicht direkt abgefragt)
 - [ ] Vor öffentlicher Freigabe: Markenregister (EUIPO/DPMA) direkt prüfen
-- [ ] DMG als GitHub-Release (Entscheidung offen: unsigniert mit Anleitung vs. Developer ID + Notarisierung; Dienst+Modelle müssten in die App)
+- [ ] GitHub-Release (ZIP, unsigniert mit Anleitung; ohne lokalen Dienst in der App) – v1.1 vorbereitet
+- [ ] Mistral-Transkription mit echtem Schlüssel testen (Beta-Tester, Intel)
+- [ ] Update-Funktion Ende-zu-Ende testen (braucht zweite Release-Version)
 - [ ] Veröffentlichung auf GitHub vorbereiten (README, Lizenz, Build-Anleitung); fertige App-Downloads bräuchten Developer ID + Notarisierung (99 $/Jahr)
 
 - [ ] Externe Korrektur mit echtem API-Schlüssel testen (Fehlerfälle geprüft)
@@ -39,6 +41,7 @@ DMG-Release entscheiden (unsigniert mit Anleitung vs. Developer ID + Notarisieru
 - [x] Neues App-Icon und Menüleisten-Symbol
 
 ## Entscheidungen
+- [x] Repo-Sichtbarkeit → privat lassen, Release anlegen (2026-11-14); automatische Update-Suche funktioniert damit nur bei öffentlichem Repo
 - [x] Neues App-Icon → D (bewegtes „e“) mit Mauszeiger, Wahl Nutzer
 - [x] Variante D → D2 (gerades „e“ mit Spuren, heller Zeiger daneben), Wahl Nutzer
 - [x] App-Name → Eppur (Galilei: „Eppur si muove“ – mit Grundannahmen brechen)
