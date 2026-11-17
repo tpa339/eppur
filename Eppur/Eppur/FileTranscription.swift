@@ -2,7 +2,8 @@
 //  FileTranscription.swift
 //  Eppur
 //
-//  Audiodateien per Drag & Drop oder Dateiauswahl transkribieren.
+//  Audio- und Videodateien per Drag & Drop oder Dateiauswahl transkribieren.
+//  Aus Videos (mp4, mov, …) wird nur die Tonspur als m4a herausgelöst.
 //  Ausschließlich Spracherkennung: keine LLM-Korrektur, kein Wörterbuch –
 //  unabhängig davon, ob die Nachkorrektur für Diktate eingeschaltet ist.
 //
@@ -34,14 +35,26 @@ final class FileTranscriber {
         self.settings = settings
     }
 
+    /// Dateitypen für die Dateiauswahl.
+    static let supportedTypes: [UTType] = [.audio, .movie]
+
+    /// Audio direkt; Videos (mp4, mov, m4v, …) über ihre Tonspur.
     nonisolated static func isAudio(_ url: URL) -> Bool {
+        isPlainAudio(url) || isVideo(url)
+    }
+
+    nonisolated private static func isPlainAudio(_ url: URL) -> Bool {
         UTType(filenameExtension: url.pathExtension)?.conforms(to: .audio) ?? false
+    }
+
+    nonisolated private static func isVideo(_ url: URL) -> Bool {
+        UTType(filenameExtension: url.pathExtension)?.conforms(to: .movie) ?? false
     }
 
     func enqueue(_ urls: [URL]) {
         let audio = urls.filter(Self.isAudio)
         let skipped = urls.filter { !Self.isAudio($0) }
-        message = skipped.isEmpty ? nil : "Kein Audio, übersprungen: " + skipped.map(\.lastPathComponent).joined(separator: ", ")
+        message = skipped.isEmpty ? nil : "Weder Audio noch Video, übersprungen: " + skipped.map(\.lastPathComponent).joined(separator: ", ")
         for url in audio {
             let job = Job(name: url.lastPathComponent)
             pending.append((job, url))
@@ -70,9 +83,16 @@ final class FileTranscriber {
         do {
             // Kopie im Sitzungsordner: Der Verlauf bleibt vollständig, auch wenn das
             // Original verschoben wird, und der Dienst braucht keinen Zugriff auf fremde Ordner.
+            // Bei Videos nur die Tonspur ablegen: kleiner, und Dienst wie API bekommen reines Audio.
             let dir = try Storage.newSessionDirectory()
-            let target = dir.appendingPathComponent(source.lastPathComponent)
-            try FileManager.default.copyItem(at: source, to: target)
+            let target: URL
+            if Self.isVideo(source) && !Self.isPlainAudio(source) {
+                target = dir.appendingPathComponent(source.deletingPathExtension().lastPathComponent + ".m4a")
+                try await Self.extractAudio(from: source, to: target)
+            } else {
+                target = dir.appendingPathComponent(source.lastPathComponent)
+                try FileManager.default.copyItem(at: source, to: target)
+            }
             copy = target
 
             switch settings.engine {
@@ -123,8 +143,32 @@ final class FileTranscriber {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Löst die Tonspur eines Videos als AAC/m4a heraus (ohne Neukodierung des Bildes).
+    private static func extractAudio(from video: URL, to target: URL) async throws {
+        let asset = AVURLAsset(url: video)
+        guard try await !asset.loadTracks(withMediaType: .audio).isEmpty else {
+            throw FileTranscriptionError.noAudioTrack
+        }
+        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw FileTranscriptionError.exportUnavailable
+        }
+        try await session.export(to: target, as: .m4a)
+    }
+
     private static func audioDuration(_ url: URL) async -> TimeInterval? {
         guard let time = try? await AVURLAsset(url: url).load(.duration), time.isNumeric else { return nil }
         return time.seconds
+    }
+}
+
+enum FileTranscriptionError: LocalizedError {
+    case noAudioTrack
+    case exportUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .noAudioTrack: "Das Video hat keine Tonspur."
+        case .exportUnavailable: "Die Tonspur konnte nicht aus dem Video gelöst werden."
+        }
     }
 }

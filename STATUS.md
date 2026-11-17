@@ -1,22 +1,23 @@
 # Status · move_AI
 Zustand: aktiv
-Aktualisiert: 2026-11-14
+Aktualisiert: 2026-11-17
 
 ## Nächster Schritt
 Beta-Tester (Intel) als Collaborator auf tpa339/eppur einladen; er installiert v1.1 per Agent-Prompt aus der README und testet Mistral.
 
 ## Zuletzt
+- 2026-11-17: Videodateien (mp4, mov, m4v, …) transkribieren: App löst die Tonspur per AVAssetExportSession als m4a in den Sitzungsordner (Video wird nicht kopiert), Fehlermeldung bei Video ohne Ton; Drop/Dateiauswahl/Texte angepasst. Build ok; Herauslösen + Parakeet am Test-MP4 geprüft. Nicht committet, nicht in /Applications installiert.
 - 2026-11-14: v1.1 für Intel: Build-Ziel macOS 26, Universal-App (arm64+x86_64); auf Intel kein lokaler Dienst, Spracherkennung per API mit Anbieter-Auswahl (Standard Mistral `voxtral-small-transcribe-3-0`, OpenRouter, eigene). Update-Funktion über GitHub Releases (Signaturprüfung gegen eigenes Zertifikat, Tausch + Neustart). `Eppur/scripts/release.sh` (Universal-ZIP + GitHub-Release). Intel-Teil unter Rosetta gestartet (kein Dienst gestartet), v1.1 in /Applications, Freigaben erhalten. Mistral-API mit echtem Schlüssel und Update-Ablauf Ende-zu-Ende noch ungetestet.
 - 2026-11-12: Hauptfenster „Eppur“ (MainWindow.swift): öffnet per Klick aufs App-Symbol; alles in einem Fenster (Seiten Jetzt/Transkripte/Einstellungen/Einrichtung, keine separaten Fenster mehr). Bühne „Höre zu“ mit Wellenform, Einstellungen als anklickbarer Satz inkl. Modelle mit Statuspunkt, letzte 3 Transkripte, Audio-Drop. Gestaltung danach beruhigt (Nutzerwunsch: keine Verläufe): native Fensterleiste mit Seitenumschalter, Systemfarben hell/dunkel, Akzent Indigo (AccentColor). Gebaut, vom Nutzer getestet und für gut befunden (2026-11-13), auf GitHub gepusht.
 - 2026-11-12: Screenshot-Modus während Fn umgebaut: Ebene lässt alle Ereignisse durch (Scrollen/Klicken nativ), Event-Tap hält nur die linke Maustaste zurück – Klick wird an die App nachgereicht, Ziehen = Bereich, langes Halten = Fenster. Per install.sh gebaut, in der laufenden App vom Nutzer bestätigt (Screenshot entsteht).
 - 2026-11-11: Neues App-Icon D2 (bewegtes „e“ + Mauszeiger) und passendes Template-Menüleistensymbol; `Eppur/design/render-icons.swift` erzeugt alle Größen direkt in die Assets. Asset-Katalog mit actool geprüft; App-Build in der Claude-Sandbox nicht möglich (Macro-Server braucht sandbox-exec) – Build/Ansicht in der laufenden App offen.
-- 2026-11-11: Audiodateien im Fenster „Transkripte“ per Drag & Drop oder Toolbar-Knopf transkribieren – nur Spracherkennung, keine LLM-Korrektur/kein Wörterbuch (auch wenn Nachkorrektur an). Kopie im Sitzungsordner, Eintrag im Verlauf mit Dateiname, Warteschlange für mehrere Dateien. Build ok; Dienstpfad mit m4a/wav/aiff geprüft (`corrected: false`). Drop in der laufenden App noch nicht geprüft.
 
 ## To-dos
 - [x] Metal Toolchain installieren
 - [x] Dienst bauen, Modelle laden, Latenz Parakeet + Qwen messen
 - [x] `install.sh` ausführen
 - [x] `install.sh` erneut ausführen (yt-dlp-Fix)
+- [ ] Video-Transkription in der laufenden App testen (Drop + Dateiauswahl)
 - [ ] Korrektur an echten Diktaten prüfen (bisher nur synthetische Sprache)
 - [ ] Fragezeichen bei gesprochenen Fragen (Qwen setzt teils Punkt)
 - [ ] Fn-Erkennung, Overlays, Auto-Einfügen im echten Gebrauch testen

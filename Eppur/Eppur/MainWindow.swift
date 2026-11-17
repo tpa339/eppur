@@ -155,7 +155,7 @@ struct HomeView: View {
                     .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
                     .background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
                     .overlay {
-                        Label("Audio ablegen", systemImage: "waveform.badge.plus")
+                        Label("Audio oder Video ablegen", systemImage: "waveform.badge.plus")
                             .font(.headline)
                             .padding(.horizontal, 14).padding(.vertical, 8)
                             .background(.regularMaterial, in: Capsule())
@@ -524,7 +524,7 @@ private struct RecentView: View {
 
             let recent = Array(controller.history.entries.prefix(3))
             if recent.isEmpty {
-                Text("Noch nichts. Audio einfach hierher ziehen.")
+                Text("Noch nichts. Audio oder Video einfach hierher ziehen.")
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 10)
             }
@@ -609,8 +609,8 @@ private struct TranscriptsPage: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 320)
                 Spacer()
-                Button("Audio transkribieren …", systemImage: "waveform.badge.plus") { importing = true }
-                    .help("Audiodatei transkribieren (ohne Korrektur) – oder einfach ins Fenster ziehen")
+                Button("Datei transkribieren …", systemImage: "waveform.badge.plus") { importing = true }
+                    .help("Audio- oder Videodatei transkribieren (ohne Korrektur) – oder einfach ins Fenster ziehen")
             }
             .padding(.horizontal, Metrics.gutter)
             .padding(.top, Metrics.pageTop)
@@ -620,7 +620,7 @@ private struct TranscriptsPage: View {
                 ContentUnavailableView(
                     "Noch nichts gesagt",
                     systemImage: "waveform",
-                    description: Text("Halte Fn und sprich – oder zieh eine Audiodatei hierher.")
+                    description: Text("Halte Fn und sprich – oder zieh eine Audio- oder Videodatei hierher.")
                 )
                 .frame(maxHeight: .infinity)
             } else {
@@ -637,7 +637,7 @@ private struct TranscriptsPage: View {
                 }
             }
         }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: FileTranscriber.supportedTypes, allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { controller.files.enqueue(urls) }
         }
     }
